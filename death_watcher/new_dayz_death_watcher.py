@@ -215,7 +215,7 @@ def parse_death_event(line: str, source_path: str) -> Optional[DeathEvent]:
         log_data = json.loads(line)
     except Exception:
         return None
-    if (log_data.get("event") != "PLAYER_DEATH_DETAILS"):
+    if (log_data.get("event") != "PLAYER_DEATH"):
         return None
     player_data = log_data.get("player", {})
     player_id = player_data.get("steamId")
@@ -227,7 +227,7 @@ def parse_death_event(line: str, source_path: str) -> Optional[DeathEvent]:
     z = player_position.get("z", None)
     if (x is None or y is None or z is None):
         return None
-    if (x == 0 and y == 0 and z == 0):
+    if (x == 0 and y == 0 and z == 0 and log_data.get("sub_event") == "suicide"):
         return None
     return DeathEvent(steam_id=player_id, ts=log_data.get("ts"), raw=log_data, source_path=source_path)
 
