@@ -1,10 +1,6 @@
 {
   "log_paths" : [
-    "../../profiles/DayZServer_x64.ADM",
-    "../../profiles/DayZServer2_x64.ADM",
-    "../../profiles/DayZServer3_x64.ADM",
-    "../../profiles/DayZServer4_x64.ADM",
-    "../../profiles/DayZServer5_x64.ADM"
+    "C:\\\\Program Files (x86)\\\\CFTools Software GmbH\\\\Architect\\\\Agent\\\\deployments\\\\MementoMori_1\\\\profiles\\\\DetailedLogs"
   ],
   "path_to_bans" : "./deaths.txt",
   "path_to_cache" : "./death_watcher_cache.json",
