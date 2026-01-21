@@ -1,7 +1,9 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal
 
 set "PY_VERSION=3.11"
+set "PY_LAUNCHER=py -%PY_VERSION%"
+set "VENV_DIR=.venv"
 
 where py >nul 2>&1
 if errorlevel 1 (
@@ -9,7 +11,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-py -%PY_VERSION% -c "import sys" >nul 2>&1
+%PY_LAUNCHER% -c "import sys" >nul 2>&1
 if errorlevel 1 (
   echo Python %PY_VERSION% not found. Attempting to install via winget...
   where winget >nul 2>&1
@@ -22,23 +24,23 @@ if errorlevel 1 (
     echo winget install failed. Please install Python %PY_VERSION% manually and re-run this script.
     exit /b 1
   )
-  py -%PY_VERSION% -c "import sys" >nul 2>&1
+  %PY_LAUNCHER% -c "import sys" >nul 2>&1
   if errorlevel 1 (
     echo Python %PY_VERSION% still not available. Please install it manually and re-run this script.
     exit /b 1
   )
 )
 
-if not exist .venv (
-  py -%PY_VERSION% -m venv .venv
+if not exist "%VENV_DIR%\\Scripts\\python.exe" (
+  %PY_LAUNCHER% -m venv "%VENV_DIR%"
 )
 
-call .venv\Scripts\activate
+set "VENV_PY=%VENV_DIR%\\Scripts\\python.exe"
 
-python -m pip install --upgrade pip
-python -m pip install -r requirement.txt
+"%VENV_PY%" -m pip install --upgrade pip
+"%VENV_PY%" -m pip install -r requirement.txt
 
-start "Main Bot" /b python main.py
-python death_watcher\new_dayz_death_watcher.py
+start "Main Bot" /b "%VENV_PY%" main.py
+"%VENV_PY%" death_watcher\\new_dayz_death_watcher.py
 
 endlocal
