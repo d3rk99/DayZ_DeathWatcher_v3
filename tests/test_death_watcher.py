@@ -1,4 +1,3 @@
-import json
 import sys
 from pathlib import Path
 
@@ -18,14 +17,6 @@ PLAYER_DEATH_LINE = (
     '{"ts":"2026-01-20T20:43:04.889","event":"PLAYER_DEATH","sub_event":"suicide",'
     '"player":{"steamId":"76561198009232482","position":{"x":0,"y":0,"z":0}}}'
 )
-
-
-def setup_cache(tmp_path):
-    cache_path = tmp_path / "cache.json"
-    cache_path.write_text(json.dumps({"logs": {}}))
-    dw.path_to_cache = str(cache_path)
-    dw.current_cache = dw.load_cache()
-    dw.verbose_logs = 0
 
 
 def test_player_death_details_triggers():
@@ -50,7 +41,9 @@ def test_player_death_details_zero_position_does_not_trigger():
 
 
 def test_multiple_log_folders_yield_events(tmp_path):
-    setup_cache(tmp_path)
+    dw.cache_entries.clear()
+    dw.cache_path_by_log.clear()
+    dw.verbose_logs = 0
     folder_one = tmp_path / "server_one"
     folder_two = tmp_path / "server_two"
     folder_one.mkdir()
@@ -69,6 +62,10 @@ def test_multiple_log_folders_yield_events(tmp_path):
 
     events = []
     for log_path in [str(folder_one), str(folder_two)]:
+        cache_path = tmp_path / f"{Path(log_path).name}_cache.json"
+        dw.cache_path_by_log[log_path] = str(cache_path)
+        dw.ensure_cache_file(str(cache_path))
+        dw.cache_entries[log_path] = dw.load_cache_entry(str(cache_path), log_path)
         cache_entry = dw.get_cache_entry(log_path)
         new_lines, log_file_path = dw.read_new_lines(log_path, cache_entry)
         for line in new_lines:
