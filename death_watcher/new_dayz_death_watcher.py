@@ -2,60 +2,85 @@ import time
 import sys
 import os
 import json
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
 
 
 os.system("title " + "DayZ Death Watcher")
 
-try:
-    with open("./config.json", "r") as json_file:
-        config = json.load(json_file)
-except FileNotFoundError:
-    print("Generating default config file: (config.json)")
-    with open("./config.json", "w") as json_file:
-        json_file.write("""{
+config: Dict[str, Any] = {}
+log_paths: List[str] = []
+path_to_bans = ""
+path_to_cache = ""
+search_logs_interval = 1
+verbose_logs = 1
+current_cache: Dict[str, Any] = {"logs": {}}
+
+CONFIG_DEFAULT = """{
   "log_paths" : ["../profiles/DayZServer_x64.ADM"],
   "path_to_bans" : "./deaths.txt",
   "path_to_cache" : "./death_watcher_cache.json",
   "ban_delay" : 5,
   "search_logs_interval" : 1,
   "verbose_logs" : 1
-}""")
-
-with open("./config.json", "r") as json_file:
-    config = json.load(json_file)
+}"""
 
 
-# create last read log file if it doesn't exist
-if (not os.path.isfile(config["path_to_cache"])):
-    print(f"Failed to find cache file: {config['path_to_cache']}\nCreating it now.")
-    with open(config["path_to_cache"], "w") as file:
-        file.write("""{
+@dataclass
+class DeathEvent:
+    steam_id: str
+    ts: Optional[str]
+    raw: Dict[str, Any]
+    source_path: str
+
+
+def load_config(config_path: str = "./config.json") -> Dict[str, Any]:
+    try:
+        with open(config_path, "r") as json_file:
+            return json.load(json_file)
+    except FileNotFoundError:
+        print("Generating default config file: (config.json)")
+        with open(config_path, "w") as json_file:
+            json_file.write(CONFIG_DEFAULT)
+    with open(config_path, "r") as json_file:
+        return json.load(json_file)
+
+
+def ensure_cache_file(cache_path: str) -> None:
+    if (not os.path.isfile(cache_path)):
+        print(f"Failed to find cache file: {cache_path}\nCreating it now.")
+        with open(cache_path, "w") as file:
+            file.write("""{
   "logs" : {}
 }""")
 
-with open(config["path_to_cache"], "r") as json_file:
-    current_cache = json.load(json_file)
 
+def normalize_log_paths(raw_config: Dict[str, Any]) -> List[str]:
+    log_paths_value = raw_config.get("log_paths", None)
+    if (log_paths_value is None):
+        log_paths_value = raw_config.get("log_path", None)
+    if (log_paths_value is None):
+        log_paths_value = raw_config.get("path_to_logs", "")
+    if (not isinstance(log_paths_value, list)):
+        log_paths_value = [log_paths_value]
 
+    cleaned_paths = []
+    seen_paths = set()
+    for log_path in log_paths_value:
+        if (not log_path):
+            continue
+        if (isinstance(log_path, str)):
+            log_path = log_path.strip()
+        if (not log_path or log_path in seen_paths):
+            continue
+        seen_paths.add(log_path)
+        cleaned_paths.append(log_path)
 
-try:
-    log_paths = config.get("log_paths", None)
-    if (log_paths is None):
-        log_paths = [config.get("path_to_logs", "")]
-    if (not isinstance(log_paths, list)):
-        log_paths = [log_paths]
-    log_paths = [path for path in log_paths if path]
-    if (len(log_paths) > 5):
-        log_paths = log_paths[:5]
-    path_to_bans = config["path_to_bans"]
-    path_to_cache = config["path_to_cache"]
-    search_logs_interval = int(config["search_logs_interval"])
-    verbose_logs = int(config["verbose_logs"])
+    if (len(cleaned_paths) > 5):
+        print("Warning: More than 5 log paths provided. Only the first 5 will be used.")
+        cleaned_paths = cleaned_paths[:5]
 
-except Exception as e:
-    print(f"Ran into unexpected error loading variables from config:\n{e}")
-    input("Press enter to close this window.")
-    sys.exit(0)
+    return cleaned_paths
 
 
 players_to_ban = []
@@ -88,7 +113,7 @@ def resolve_log_file(log_path):
         try:
             candidates = []
             for name in os.listdir(log_path):
-                if (name.endswith(".ljson")):
+                if (name.startswith("dl_") and name.endswith(".ljson")):
                     candidates.append(os.path.join(log_path, name))
             if (len(candidates) == 0):
                 return ""
@@ -105,99 +130,75 @@ def read_new_lines(log_path, cache_entry):
         return [], log_file_path
 
     if (cache_entry["log_file"] != log_file_path):
-        cache_entry["prev_log_read"] = ""
+        if (cache_entry["log_file"]):
+            print(f"Detected log rotation for {log_path}. Switching to {log_file_path}")
+        else:
+            print(f"Now tailing {log_file_path}")
+        cache_entry["offset"] = 0
+        cache_entry["partial"] = ""
         cache_entry["log_file"] = log_file_path
         update_cache()
 
     try:
+        file_size = os.path.getsize(log_file_path)
+        if (cache_entry["offset"] > file_size):
+            cache_entry["offset"] = 0
+            cache_entry["partial"] = ""
         with open(log_file_path, "r") as file:
-            lines = file.read().split("\n")
+            file.seek(cache_entry["offset"])
+            data = file.read()
+            cache_entry["offset"] = file.tell()
     except Exception:
         time.sleep(10)
         return [], log_file_path
 
-    while ("" in lines):
-        lines.remove("")
+    if (not data):
+        return [], log_file_path
 
-    lines.reverse()
+    data = f"{cache_entry['partial']}{data}"
+    lines = data.split("\n")
+    if (data and not data.endswith("\n")):
+        cache_entry["partial"] = lines.pop()
+    else:
+        cache_entry["partial"] = ""
 
-    new_lines = []
-    for line in lines:
-        if (line == cache_entry["prev_log_read"]):
-            break
-        new_lines.insert(0, line)
-
-    return new_lines, log_file_path
-
-
-def is_death_log(line):
-    if (line.lstrip().startswith("{")):
-        try:
-            log_data = json.loads(line)
-        except Exception:
-            return False
-        if (log_data.get("event") != "PLAYER_DEATH_DETAILS"):
-            return False
-        player_data = log_data.get("player", {})
-        player_position = player_data.get("position", {})
-        x = player_position.get("x", None)
-        y = player_position.get("y", None)
-        z = player_position.get("z", None)
-        if (x is None or y is None or z is None):
-            return False
-        if (x == 0 and y == 0 and z == 0):
-            return False
-        return True
-
-    return False
+    update_cache()
+    return [line for line in lines if line], log_file_path
 
 
-def get_id_from_line(line):
-    if (line.lstrip().startswith("{")):
-        try:
-            log_data = json.loads(line)
-        except Exception:
-            return ""
-        if (log_data.get("event") != "PLAYER_DEATH_DETAILS"):
-            return ""
-        player_data = log_data.get("player", {})
-        player_id = player_data.get("steamId", "")
-        if (not player_id):
-            return ""
-        player_position = player_data.get("position", {})
-        x = player_position.get("x", None)
-        y = player_position.get("y", None)
-        z = player_position.get("z", None)
-        if (x is None or y is None or z is None):
-            return ""
-        if (x == 0 and y == 0 and z == 0):
-            return ""
-        return player_id
-
-    index = line.find("(id=")
-    start_index = index + 4
-
-    if (index == -1 or len(line) < (start_index + 44)):
-        return ""
-
-    player_id = ""
-    player_id = line[start_index:start_index + 44]
-
-    if ("Unknown" in player_id):
-        return ""
-
-    return player_id
+def parse_death_event(line: str, source_path: str) -> Optional[DeathEvent]:
+    if (not line.lstrip().startswith("{")):
+        return None
+    try:
+        log_data = json.loads(line)
+    except Exception:
+        return None
+    if (log_data.get("event") != "PLAYER_DEATH_DETAILS"):
+        return None
+    player_data = log_data.get("player", {})
+    player_id = player_data.get("steamId")
+    if (not player_id):
+        return None
+    player_position = player_data.get("position", {})
+    x = player_position.get("x", None)
+    y = player_position.get("y", None)
+    z = player_position.get("z", None)
+    if (x is None or y is None or z is None):
+        return None
+    if (x == 0 and y == 0 and z == 0):
+        return None
+    return DeathEvent(steam_id=player_id, ts=log_data.get("ts"), raw=log_data, source_path=source_path)
 
 
 def update_cache():
-    with open(config["path_to_cache"], "w") as json_file:
+    with open(path_to_cache, "w") as json_file:
         json.dump(current_cache, json_file, indent = 4)
     if (verbose_logs):
         print(f"Updated cache file:\n    {current_cache}")
     
     
 def load_cache():
-    with open(config["path_to_cache"], "r") as json_file:
+    with open(path_to_cache, "r") as json_file:
         cache_data = json.load(json_file)
     if ("logs" not in cache_data):
         cache_data = {"logs": {}}
@@ -208,8 +209,12 @@ def load_cache():
 
 def get_cache_entry(log_path):
     if (log_path not in current_cache["logs"]):
-        current_cache["logs"][log_path] = {"prev_log_read": "", "log_file": ""}
-    return current_cache["logs"][log_path]
+        current_cache["logs"][log_path] = {"log_file": "", "offset": 0, "partial": ""}
+    cache_entry = current_cache["logs"][log_path]
+    cache_entry.setdefault("log_file", "")
+    cache_entry.setdefault("offset", 0)
+    cache_entry.setdefault("partial", "")
+    return cache_entry
 
 
 def player_is_queued_for_ban(player_id):
@@ -221,8 +226,24 @@ def player_is_queued_for_ban(player_id):
 
 
 def __main__():
-    global current_cache
+    global current_cache, config, log_paths, path_to_bans, path_to_cache, search_logs_interval, verbose_logs
     print("Starting script...")
+
+    config = load_config()
+    try:
+        log_paths = normalize_log_paths(config)
+        path_to_bans = config["path_to_bans"]
+        path_to_cache = config["path_to_cache"]
+        search_logs_interval = int(config["search_logs_interval"])
+        verbose_logs = int(config["verbose_logs"])
+
+    except Exception as e:
+        print(f"Ran into unexpected error loading variables from config:\n{e}")
+        input("Press enter to close this window.")
+        sys.exit(0)
+
+    ensure_cache_file(path_to_cache)
+    current_cache = load_cache()
     
     # verify core files are found
     valid_log_paths = []
@@ -265,9 +286,9 @@ def __main__():
                 if (verbose_logs):
                     print(f"[{log_number}] {line}")
 
-                # If current log message is a death message, get their id, and ban them
-                if (is_death_log(line)):
-                    player_id = get_id_from_line(line)
+                death_event = parse_death_event(line, log_file_path)
+                if (death_event):
+                    player_id = death_event.steam_id
                     if (verbose_logs):
                         print(f"Found death log:\n    {line} Victim id: {player_id}")
 
@@ -281,11 +302,6 @@ def __main__():
                             print(f"    This player will be banned in {time_to_ban_player - time.time()} seconds.")
                     if (verbose_logs):
                         print()
-
-                # Update last log message to know where we already searched for death messages
-                cache_entry["prev_log_read"] = line
-                cache_entry["log_file"] = log_file_path
-                update_cache()
 
                 log_number += 1
 
@@ -301,13 +317,14 @@ def __main__():
             sleep_amount -= sleep_inc
     
 
-try:
-    __main__()
-    
-except KeyboardInterrupt:
-    print("Closing program...")
-    time.sleep(1.0)
-    
-except Exception as e:
-    print(f"Ran into an unexpected exception. Error: {e}")
-    input("Press enter to close this window.")
+if __name__ == "__main__":
+    try:
+        __main__()
+        
+    except KeyboardInterrupt:
+        print("Closing program...")
+        time.sleep(1.0)
+        
+    except Exception as e:
+        print(f"Ran into an unexpected exception. Error: {e}")
+        input("Press enter to close this window.")
