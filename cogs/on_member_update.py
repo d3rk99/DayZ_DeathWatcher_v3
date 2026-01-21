@@ -39,17 +39,13 @@ class OnMemberUpdate(commands.Cog):
             userdata = userdata_json["userdata"][str(user_id)]
             alive_role = nextcord.utils.get(member_after.guild.roles, id = int(config["alive_role"]))
             dead_role = nextcord.utils.get(member_after.guild.roles, id = int(config["dead_role"]))
-            can_revive_role = nextcord.utils.get(member_after.guild.roles, id = int(config["can_revive_role"]))
             new_role = None
             
             if (alive_role in member_after.roles and (not alive_role in member_before.roles) and str(userdata["is_alive"]) == "0"):
                 if (dead_role in member_after.roles):
                     await member_after.remove_roles(dead_role)
-                if (can_revive_role in member_after.roles):
-                    await member_after.remove_roles(can_revive_role)
                 userdata["is_alive"] = 1
                 userdata["time_of_death"] = 0
-                userdata["can_revive"] = 0
                 
                 # remove from season deaths if they're in there
                 if (str(user_id) in season_deaths):
@@ -60,11 +56,8 @@ class OnMemberUpdate(commands.Cog):
             elif (dead_role in member_after.roles and (not dead_role in member_before.roles) and (not str(userdata["is_alive"]) == "0")):
                 if (alive_role in member_after.roles):
                     await member_after.remove_roles(alive_role)
-                if (can_revive_role in member_after.roles):
-                    await member_after.remove_roles(can_revive_role)
                 userdata["is_alive"] = 0
                 userdata["time_of_death"] = int(time.time())
-                userdata["can_revive"] = 0
                 
                 # add them to season deaths if not already in there
                 if (not str(user_id) in season_deaths):
