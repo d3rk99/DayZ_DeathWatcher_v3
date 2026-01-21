@@ -16,7 +16,6 @@ except FileNotFoundError:
   "log_paths" : ["../profiles/DayZServer_x64.ADM"],
   "path_to_bans" : "./deaths.txt",
   "path_to_cache" : "./death_watcher_cache.json",
-  "death_cues" : ["killed by", "committed suicide", "bled out", "died.", "(DEAD)", "was brutally murdered by that psycho Timmy"],
   "ban_delay" : 5,
   "search_logs_interval" : 1,
   "verbose_logs" : 1
@@ -50,7 +49,6 @@ try:
         log_paths = log_paths[:5]
     path_to_bans = config["path_to_bans"]
     path_to_cache = config["path_to_cache"]
-    death_cues = config["death_cues"]
     search_logs_interval = int(config["search_logs_interval"])
     verbose_logs = int(config["verbose_logs"])
 
@@ -150,10 +148,6 @@ def is_death_log(line):
         if (x == 0 and y == 0 and z == 0):
             return False
         return True
-
-    for death in death_cues:
-        if (death in line and not f'"{death}' in line and not f"'{death}" in line):
-            return True
 
     return False
 
