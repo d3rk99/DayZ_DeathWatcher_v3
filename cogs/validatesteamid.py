@@ -123,7 +123,6 @@ class ValidateSteamId(commands.Cog):
                 'guid' : str(guid),
                 'is_alive' : 1,
                 'time_of_death' : 0,
-                'can_revive' : 0,
                 'is_admin' : 0
             }
             
