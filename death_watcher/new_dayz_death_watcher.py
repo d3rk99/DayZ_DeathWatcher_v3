@@ -11,15 +11,16 @@ os.system("title " + "DayZ Death Watcher")
 config: Dict[str, Any] = {}
 log_paths: List[str] = []
 path_to_bans = ""
-path_to_cache = ""
+cache_paths: List[str] = []
 search_logs_interval = 1
 verbose_logs = 1
-current_cache: Dict[str, Any] = {"logs": {}}
+cache_entries: Dict[str, Dict[str, Any]] = {}
+cache_path_by_log: Dict[str, str] = {}
 
 CONFIG_DEFAULT = """{
   "log_paths" : ["../profiles/DayZServer_x64.ADM"],
   "path_to_bans" : "./deaths.txt",
-  "path_to_cache" : "./death_watcher_cache.json",
+  "cache_paths" : ["./death_watcher_cache.json"],
   "ban_delay" : 5,
   "search_logs_interval" : 1,
   "verbose_logs" : 1
@@ -50,9 +51,11 @@ def ensure_cache_file(cache_path: str) -> None:
     if (not os.path.isfile(cache_path)):
         print(f"Failed to find cache file: {cache_path}\nCreating it now.")
         with open(cache_path, "w") as file:
-            file.write("""{
-  "logs" : {}
-}""")
+            json.dump(default_cache_entry(), file, indent=4)
+
+
+def default_cache_entry() -> Dict[str, Any]:
+    return {"log_file": "", "offset": 0, "partial": ""}
 
 
 def normalize_log_paths(raw_config: Dict[str, Any]) -> List[str]:
@@ -79,6 +82,45 @@ def normalize_log_paths(raw_config: Dict[str, Any]) -> List[str]:
     if (len(cleaned_paths) > 5):
         print("Warning: More than 5 log paths provided. Only the first 5 will be used.")
         cleaned_paths = cleaned_paths[:5]
+
+    return cleaned_paths
+
+
+def normalize_cache_paths(raw_config: Dict[str, Any], log_paths: List[str]) -> List[str]:
+    cache_paths_value = raw_config.get("cache_paths", None)
+    if (cache_paths_value is None):
+        cache_paths_value = raw_config.get("path_to_caches", None)
+    if (cache_paths_value is None):
+        cache_paths_value = raw_config.get("path_to_cache", None)
+    if (not isinstance(cache_paths_value, list)):
+        cache_paths_value = [cache_paths_value]
+
+    cleaned_paths = []
+    for cache_path in cache_paths_value:
+        if (not cache_path):
+            continue
+        if (isinstance(cache_path, str)):
+            cache_path = cache_path.strip()
+        if (not cache_path):
+            continue
+        cleaned_paths.append(cache_path)
+
+    if (len(cleaned_paths) == 0):
+        cleaned_paths = ["./death_watcher_cache.json"]
+
+    if (len(cleaned_paths) > len(log_paths)):
+        print("Warning: More cache paths than log paths provided. Extra cache paths will be ignored.")
+        cleaned_paths = cleaned_paths[:len(log_paths)]
+
+    if (len(cleaned_paths) < len(log_paths)):
+        base_path = cleaned_paths[0]
+        base_root, base_ext = os.path.splitext(base_path)
+        if (not base_ext):
+            base_root = base_path
+            base_ext = ".json"
+        while (len(cleaned_paths) < len(log_paths)):
+            index = len(cleaned_paths) + 1
+            cleaned_paths.append(f"{base_root}_{index}{base_ext}")
 
     return cleaned_paths
 
@@ -137,7 +179,7 @@ def read_new_lines(log_path, cache_entry):
         cache_entry["offset"] = 0
         cache_entry["partial"] = ""
         cache_entry["log_file"] = log_file_path
-        update_cache()
+        update_cache(log_path)
 
     try:
         file_size = os.path.getsize(log_file_path)
@@ -162,7 +204,7 @@ def read_new_lines(log_path, cache_entry):
     else:
         cache_entry["partial"] = ""
 
-    update_cache()
+    update_cache(log_path)
     return [line for line in lines if line], log_file_path
 
 
@@ -190,27 +232,36 @@ def parse_death_event(line: str, source_path: str) -> Optional[DeathEvent]:
     return DeathEvent(steam_id=player_id, ts=log_data.get("ts"), raw=log_data, source_path=source_path)
 
 
-def update_cache():
-    with open(path_to_cache, "w") as json_file:
-        json.dump(current_cache, json_file, indent = 4)
+def update_cache(log_path: str):
+    cache_path = cache_path_by_log.get(log_path)
+    if (not cache_path):
+        return
+    with open(cache_path, "w") as json_file:
+        json.dump(cache_entries.get(log_path, default_cache_entry()), json_file, indent=4)
     if (verbose_logs):
-        print(f"Updated cache file:\n    {current_cache}")
+        print(f"Updated cache file ({cache_path}):\n    {cache_entries.get(log_path)}")
     
     
-def load_cache():
-    with open(path_to_cache, "r") as json_file:
+def load_cache_entry(cache_path: str, log_path: str) -> Dict[str, Any]:
+    with open(cache_path, "r") as json_file:
         cache_data = json.load(json_file)
-    if ("logs" not in cache_data):
-        cache_data = {"logs": {}}
-    if ("logs" not in cache_data):
-        cache_data["logs"] = {}
+
+    if (isinstance(cache_data, dict) and "logs" in cache_data):
+        cache_data = cache_data["logs"].get(log_path, {})
+
+    if (not isinstance(cache_data, dict)):
+        cache_data = {}
+
+    cache_data.setdefault("log_file", "")
+    cache_data.setdefault("offset", 0)
+    cache_data.setdefault("partial", "")
     return cache_data
 
 
 def get_cache_entry(log_path):
-    if (log_path not in current_cache["logs"]):
-        current_cache["logs"][log_path] = {"log_file": "", "offset": 0, "partial": ""}
-    cache_entry = current_cache["logs"][log_path]
+    if (log_path not in cache_entries):
+        cache_entries[log_path] = default_cache_entry()
+    cache_entry = cache_entries[log_path]
     cache_entry.setdefault("log_file", "")
     cache_entry.setdefault("offset", 0)
     cache_entry.setdefault("partial", "")
@@ -226,14 +277,14 @@ def player_is_queued_for_ban(player_id):
 
 
 def __main__():
-    global current_cache, config, log_paths, path_to_bans, path_to_cache, search_logs_interval, verbose_logs
+    global config, log_paths, path_to_bans, cache_paths, search_logs_interval, verbose_logs
     print("Starting script...")
 
     config = load_config()
     try:
         log_paths = normalize_log_paths(config)
         path_to_bans = config["path_to_bans"]
-        path_to_cache = config["path_to_cache"]
+        cache_paths = normalize_cache_paths(config, log_paths)
         search_logs_interval = int(config["search_logs_interval"])
         verbose_logs = int(config["verbose_logs"])
 
@@ -242,8 +293,11 @@ def __main__():
         input("Press enter to close this window.")
         sys.exit(0)
 
-    ensure_cache_file(path_to_cache)
-    current_cache = load_cache()
+    cache_path_by_log.clear()
+    for log_path, cache_path in zip(log_paths, cache_paths):
+        cache_path_by_log[log_path] = cache_path
+        ensure_cache_file(cache_path)
+        cache_entries[log_path] = load_cache_entry(cache_path, log_path)
     
     # verify core files are found
     valid_log_paths = []
@@ -261,11 +315,10 @@ def __main__():
         sys.exit(0)
     
     
-    current_cache = load_cache()
     log_number = 0
     
     
-    if (len(current_cache.get("logs", {})) > 0):
+    if (len(cache_entries) > 0):
         print("Last log read values loaded from cache.")
     
     time.sleep(1)

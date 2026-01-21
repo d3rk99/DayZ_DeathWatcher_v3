@@ -1,9 +1,15 @@
 {
   "log_paths" : [
-    "C:\\\\Program Files (x86)\\\\CFTools Software GmbH\\\\Architect\\\\Agent\\\\deployments\\\\MementoMori_1\\\\profiles\\\\DetailedLogs"
+    "C:\\\\Program Files (x86)\\\\CFTools Software GmbH\\\\Architect\\\\Agent\\\\deployments\\\\MementoMori_1\\\\profiles\\\\DetailedLogs",
+    "C:\\\\Program Files (x86)\\\\CFTools Software GmbH\\\\Architect\\\\Agent\\\\deployments\\\\MementoMori_2\\\\profiles\\\\DetailedLogs",
+    "C:\\\\Program Files (x86)\\\\CFTools Software GmbH\\\\Architect\\\\Agent\\\\deployments\\\\MementoMori_3\\\\profiles\\\\DetailedLogs"
   ],
   "path_to_bans" : "./deaths.txt",
-  "path_to_cache" : "./death_watcher_cache.json",
+  "cache_paths" : [
+    "./death_watcher_cache_1.json",
+    "./death_watcher_cache_2.json",
+    "./death_watcher_cache_3.json"
+  ],
   "ban_delay" : 5,
   "search_logs_interval" : 1,
   "verbose_logs" : 1
