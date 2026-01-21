@@ -6,6 +6,8 @@ set "PY_LAUNCHER=py -%PY_VERSION%"
 set "VENV_DIR=.venv"
 set "VENV_PY=%VENV_DIR%\Scripts\python.exe"
 
+pushd "%~dp0"
+
 where py >nul 2>&1
 if errorlevel 1 goto python_missing
 
@@ -42,9 +44,10 @@ if not exist "%VENV_PY%" %PY_LAUNCHER% -m venv "%VENV_DIR%"
 "%VENV_PY%" -m pip install --upgrade pip
 "%VENV_PY%" -m pip install -r requirement.txt
 
-start "Main Bot" /b "%VENV_PY%" main.py
+start "Main Bot" /b /d "%~dp0" "%VENV_PY%" main.py
 pushd death_watcher
 "%VENV_PY%" new_dayz_death_watcher.py
 popd
 
+popd
 endlocal
