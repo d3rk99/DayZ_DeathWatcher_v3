@@ -66,7 +66,6 @@ def main():
         watch_death_watcher_bans = False
     
     vc_check.start()
-    check_if_users_can_revive.start()
     
     if (watch_death_watcher_bans):
         print("\nWatching for new death watcher deaths")
@@ -172,65 +171,6 @@ async def vc_check():
         await dump_error_discord(text, "Unexpected error")
 
 
-@tasks.loop(seconds = 5)
-async def check_if_users_can_revive():
-    await client.wait_until_ready()
-    
-    try:
-        
-        guild = client.get_guild(config["guild_id"])
-        can_revive_role = nextcord.utils.get(guild.roles, id = config["can_revive_role"])
-        season_pass_role = nextcord.utils.get(guild.roles, id = config["season_pass_role"])
-        
-        with open(config["userdata_db_path"], "r") as json_file:
-            userdata_json = json.load(json_file)
-        
-        updated_users = 0
-        for user_id in userdata_json["season_deaths"]:
-            
-            try:
-                userdata = userdata_json["userdata"][user_id]
-            except:
-                # user with user_id doesn't exist in db for some reason. Ignore
-                continue
-            
-            if (userdata["can_revive"] == 1):
-                continue
-            
-            member = guild.get_member(int(user_id))
-            if (member == None or member.bot):
-                continue
-            
-            time_since_death = int(time.time()) - int(userdata["time_of_death"])
-            if (season_pass_role in member.roles and time_since_death > float(config["wait_time_new_life_seconds_season_pass"])):
-                print(f"[MarkUserCanRevive] User ({user_id}) with season pass has been dead for {config['wait_time_new_life_seconds_season_pass']/60/60/24} days. Reviving them now.")
-                await unban_user(member.id)
-                #userdata["can_revive"] = 1
-                #updated_users += 1
-            
-            elif (time_since_death > float(config["wait_time_new_life_seconds"])):
-                print(f"[MarkUserCanRevive] User ({user_id}) can now revive. Assigning them their role.")
-                userdata["can_revive"] = 1
-                updated_users += 1
-                if (not can_revive_role in member.roles):
-                    await member.add_roles(can_revive_role)
-                    try:
-                        await member.send(f"Great news! You've been dead for {config['wait_time_new_life_seconds']/60/60/24} days, and are now elligible to purchase a new life if you choose to do so.")
-                    except Exception as e:
-                        pass
-            
-            
-        
-        if (updated_users > 0):
-            with open(config["userdata_db_path"], "w") as json_file:
-                json.dump(userdata_json, json_file, indent = 4)
-    
-    except Exception as e:
-        text = f"[MarkUserCanRevive] \"{e}\"\nIt is advised to restart this script."
-        print(text)
-        await dump_error_discord(text, "Unexpected error")
-
-
 @tasks.loop(seconds = 2)
 async def watch_for_new_deaths():
     await client.wait_until_ready()
@@ -322,7 +262,6 @@ async def set_user_as_dead(user_id):
         print(f"Found new death. User: {userdata['username']}")
         userdata["is_alive"] = 0
         userdata["time_of_death"] = int(time.time())
-        userdata["can_revive"] = 0
         
         if (not str(user_id) in season_deaths):
             season_deaths.append(str(user_id))
@@ -345,14 +284,11 @@ async def set_user_as_dead(user_id):
         
         alive_role = nextcord.utils.get(guild.roles, id = config["alive_role"])
         dead_role = nextcord.utils.get(guild.roles, id = config["dead_role"])
-        can_revive_role = nextcord.utils.get(guild.roles, id = config["can_revive_role"])
         
         if (alive_role in member.roles):
             await member.remove_roles(alive_role)
         if (not dead_role in member.roles):
             await member.add_roles(dead_role)
-        if (can_revive_role in member.roles):
-            await member.remove_roles(can_revive_role)
         
         # kick user from voice channel
         try:
@@ -399,7 +335,6 @@ async def unban_user(user_id):
         # set death status to alive and update db
         userdata["is_alive"] = 1
         userdata["time_of_death"] = 0
-        userdata["can_revive"] = 0
         
         # remove from season deaths if user_id is in there
         if (str(user_id) in season_deaths):
@@ -427,12 +362,9 @@ async def unban_user(user_id):
         
         alive_role = nextcord.utils.get(guild.roles, id = config["alive_role"])
         dead_role = nextcord.utils.get(guild.roles, id = config["dead_role"])
-        can_revive_role = nextcord.utils.get(guild.roles, id = config["can_revive_role"])
         
         if (dead_role in member.roles):
             await member.remove_roles(dead_role)
-        if (can_revive_role in member.roles):
-            await member.remove_roles(can_revive_role)
         if (not alive_role in member.roles):
             await member.add_roles(alive_role)
         
