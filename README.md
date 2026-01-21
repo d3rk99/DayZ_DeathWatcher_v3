@@ -1,2 +1,1 @@
-# DayZ_DeathWatcher_v3
-
+# life_and_death_bot
