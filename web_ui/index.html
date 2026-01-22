@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DayZ DeathWatcher Control</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <div class="brand">
+          <div class="mark">⚔</div>
+          <div>
+            <h1>DeathWatcher Command</h1>
+            <p class="subtitle">Live intel for the three core scripts</p>
+          </div>
+        </div>
+        <div class="status">
+          <span class="pulse"></span>
+          <span id="server-status">Connecting...</span>
+        </div>
+      </header>
+
+      <nav class="tabs">
+        <button class="tab active" data-tab="overview">Overview</button>
+        <button class="tab" data-tab="users">User Database</button>
+        <button class="tab" data-tab="logs">Log Watch</button>
+        <button class="tab" data-tab="sync">Sync System</button>
+      </nav>
+
+      <main>
+        <section class="tab-panel active" id="overview">
+          <div class="panel-header">
+            <h2>System Overview</h2>
+            <p>High-level status of the bot, watcher, and syncer.</p>
+          </div>
+          <div class="overview-layout">
+            <div class="overview-logs">
+              <h3>Bot Logs</h3>
+              <p class="muted">Latest output from the bot runtime.</p>
+              <div class="log-card">
+                <pre id="bot-log-output">Loading...</pre>
+              </div>
+            </div>
+            <div class="overview-list">
+              <h3>Service Status</h3>
+              <ul id="overview-list"></ul>
+            </div>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="users">
+          <div class="panel-header">
+            <div>
+              <h2>User Database</h2>
+              <p>Search, update roles, and manage player access.</p>
+            </div>
+            <div class="actions">
+              <input id="user-search" type="search" placeholder="Search by name, Discord ID, Steam ID..." />
+              <button class="ghost" id="refresh-users">Refresh</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Discord</th>
+                  <th>Steam ID</th>
+                  <th>GUID</th>
+                  <th>Alive</th>
+                  <th>Admin</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="users-table"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="tab-panel" id="logs">
+          <div class="panel-header">
+            <div>
+              <h2>Server Log Reads</h2>
+              <p>Live tail from the configured DayZ logs.</p>
+            </div>
+            <button class="ghost" id="refresh-logs">Refresh</button>
+          </div>
+          <div class="log-grid" id="logs-grid"></div>
+        </section>
+
+        <section class="tab-panel" id="sync">
+          <div class="panel-header">
+            <div>
+              <h2>Sync System</h2>
+              <p>Whitelist &amp; blacklist replication state.</p>
+            </div>
+            <button class="ghost" id="refresh-sync">Refresh</button>
+          </div>
+          <div class="sync-layout">
+            <div class="sync-header" id="sync-header"></div>
+            <div class="sync-columns" id="sync-columns"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
