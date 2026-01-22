@@ -44,10 +44,8 @@ if not exist "%VENV_PY%" %PY_LAUNCHER% -m venv "%VENV_DIR%"
 "%VENV_PY%" -m pip install --upgrade pip
 "%VENV_PY%" -m pip install -r requirement.txt
 
-start "Main Bot" /b /d "%~dp0" "%VENV_PY%" main.py
-pushd death_watcher
-"%VENV_PY%" new_dayz_death_watcher.py
-popd
+start "Main Bot" /d "%~dp0" "%VENV_PY%" main.py
+start "Death Watcher" /d "%~dp0death_watcher" "%VENV_PY%" new_dayz_death_watcher.py
 
 popd
 endlocal

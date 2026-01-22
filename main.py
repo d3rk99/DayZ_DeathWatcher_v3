@@ -33,7 +33,7 @@ def main():
     if (not os.path.isfile(config["userdata_db_path"])):
         print(f"Userdata db file ({config['userdata_db_path']}) not found. Creating it now.")
         with open(config["userdata_db_path"], "w") as file:
-            file.write("{\"userdata\": {}}")
+            file.write("{\"userdata\": {}, \"season_deaths\": []}")
     
     # verify whitelist file path is valid
     if (not os.path.isfile(config["whitelist_path"])):
@@ -84,6 +84,20 @@ def load_cogs():
             client.load_extension(f"cogs.{fn[:-3]}")
             
 
+def normalize_userdata_db(userdata_json):
+    changed = False
+    if (not isinstance(userdata_json, dict)):
+        userdata_json = {}
+        changed = True
+    if ("userdata" not in userdata_json or not isinstance(userdata_json["userdata"], dict)):
+        userdata_json["userdata"] = {}
+        changed = True
+    if ("season_deaths" not in userdata_json or not isinstance(userdata_json["season_deaths"], list)):
+        userdata_json["season_deaths"] = []
+        changed = True
+    return userdata_json, changed
+
+
 @tasks.loop(seconds = 2)
 async def vc_check():
     await client.wait_until_ready()
@@ -94,6 +108,10 @@ async def vc_check():
         
         with open(config["userdata_db_path"], "r") as json_file:
             userdata_json = json.load(json_file)
+        userdata_json, changed = normalize_userdata_db(userdata_json)
+        if (changed):
+            with open(config["userdata_db_path"], "w") as json_file:
+                json.dump(userdata_json, json_file, indent = 4)
         
         with open(config["whitelist_path"], "r") as file:
             whitelist_list = file.read().split('\n')
@@ -181,6 +199,10 @@ async def watch_for_new_deaths():
             death_list = file.read().split('\n')
         with open(config["userdata_db_path"], "r") as json_file:
             userdata_json = json.load(json_file)
+        userdata_json, changed = normalize_userdata_db(userdata_json)
+        if (changed):
+            with open(config["userdata_db_path"], "w") as json_file:
+                json.dump(userdata_json, json_file, indent = 4)
         
         for guid in death_list:
             for user_id, userdata in userdata_json["userdata"].items():
@@ -212,6 +234,10 @@ async def watch_for_users_to_unban():
         
         with open(config["userdata_db_path"], "r") as json_file:
             userdata_json = json.load(json_file)
+        userdata_json, changed = normalize_userdata_db(userdata_json)
+        if (changed):
+            with open(config["userdata_db_path"], "w") as json_file:
+                json.dump(userdata_json, json_file, indent = 4)
         
         if (steam_ids[1] == "-1"):
             print(f"Unbanning all players")
@@ -250,6 +276,10 @@ async def set_user_as_dead(user_id):
         # update userdata (set user as dead)
         with open(config["userdata_db_path"], "r") as json_file:
             userdata_json = json.load(json_file)
+        userdata_json, changed = normalize_userdata_db(userdata_json)
+        if (changed):
+            with open(config["userdata_db_path"], "w") as json_file:
+                json.dump(userdata_json, json_file, indent = 4)
         userdata = userdata_json["userdata"][user_id]
         season_deaths = userdata_json["season_deaths"]
         

@@ -5,6 +5,7 @@ import json
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
+from dayz_dev_tools import guid as GUID
 
 os.system("title " + "DayZ Death Watcher")
 
@@ -140,14 +141,19 @@ def try_to_ban_players():
 
 
 def ban_player(player_id):
+    try:
+        guid = GUID.guid_for_steamid64(str(player_id))
+    except Exception as e:
+        print(f"Failed to convert steam id to guid ({player_id}): {e}")
+        return
     with open(path_to_bans, "r") as file:
         ban_list = file.read().split('\n')
         
-    if (not player_id in ban_list):
+    if (not guid in ban_list):
         with open(path_to_bans, "a") as file:
-            file.write(f"{player_id}\n")
+            file.write(f"{guid}\n")
         if (verbose_logs):
-            print(f"Added player with id: {player_id} to ban file: {path_to_bans}")
+            print(f"Added player guid: {guid} (steam id: {player_id}) to ban file: {path_to_bans}")
 
 
 def resolve_log_file(log_path):
