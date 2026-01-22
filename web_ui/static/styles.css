@@ -173,6 +173,67 @@ button.ghost {
   gap: 16px;
 }
 
+.overview-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(300px, 1.2fr);
+  gap: 20px;
+}
+
+.overview-logs h3,
+.overview-list h3 {
+  margin-bottom: 8px;
+}
+
+.overview-logs .log-card {
+  margin-top: 12px;
+}
+
+.overview-list ul {
+  list-style: none;
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.overview-list li {
+  background: var(--panel);
+  border: 1px solid #1d2627;
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.overview-list li strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.sync-layout {
+  display: grid;
+  gap: 18px;
+}
+
+.sync-header {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  justify-content: center;
+  gap: 16px;
+}
+
+.sync-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.sync-column {
+  display: grid;
+  gap: 16px;
+}
+
 .card {
   background: var(--panel);
   border: 1px solid #1d2627;
@@ -245,6 +306,22 @@ tr:hover td {
   font-size: 0.85rem;
 }
 
+.user-name {
+  font-weight: 600;
+}
+
+.user-name.alive {
+  color: var(--success);
+}
+
+.user-name.dead {
+  color: var(--danger);
+}
+
+.user-name.admin {
+  color: var(--accent);
+}
+
 .log-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -295,6 +372,10 @@ tr:hover td {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
+  }
+
+  .overview-layout {
+    grid-template-columns: 1fr;
   }
 
   .actions {

@@ -20,7 +20,8 @@
     "web_ui" : {
         "host" : "0.0.0.0",
         "port" : 8080,
-        "log_tail_lines" : 200
+        "log_tail_lines" : 200,
+        "bot_log_path" : "./bot.log"
     },
     "syncer" : {
         "whitelist_sync_path" : "C:/Program Files (x86)/CFTools Software GmbH/Architect/Agent/deployments/Sync/whitelist.txt",

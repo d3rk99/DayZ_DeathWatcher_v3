@@ -38,25 +38,47 @@ const formatFileCard = (title, info) => {
   `;
 };
 
+const formatOverviewItem = (label, info) => {
+  const status = info.exists ? 'Online' : 'Missing';
+  const statusClass = info.exists ? 'ok' : 'warn';
+  return `
+    <li>
+      <div>
+        <strong>${label}</strong>
+        <span class="muted">${info.path || 'Not configured'}</span>
+      </div>
+      <div class="meta">
+        <span class="badge ${statusClass}">${status}</span>
+        <span class="badge">Entries: ${formatEntries(info.entries)}</span>
+        <span class="badge">Updated: ${info.modified || '—'}</span>
+      </div>
+    </li>
+  `;
+};
+
 const loadOverview = async () => {
-  const grid = document.getElementById('overview-grid');
-  grid.innerHTML = '';
+  const list = document.getElementById('overview-list');
+  const botLogOutput = document.getElementById('bot-log-output');
+  list.innerHTML = '';
   try {
     const response = await fetch('/api/overview');
     const data = await response.json();
 
-    const cards = [
-      formatFileCard('User Database', data.userdata_db),
-      formatFileCard('Whitelist', data.whitelist),
-      formatFileCard('Blacklist', data.blacklist),
-      formatFileCard('Death Watcher Deaths', data.death_watcher_deaths),
-      formatFileCard('Syncer Whitelist', data.syncer.whitelist_sync),
-      formatFileCard('Syncer Blacklist', data.syncer.blacklist_sync),
+    const items = [
+      formatOverviewItem('User Database', data.userdata_db),
+      formatOverviewItem('Whitelist', data.whitelist),
+      formatOverviewItem('Blacklist', data.blacklist),
+      formatOverviewItem('Death Watcher Deaths', data.death_watcher_deaths),
+      formatOverviewItem('Syncer Whitelist', data.syncer.whitelist_sync),
+      formatOverviewItem('Syncer Blacklist', data.syncer.blacklist_sync),
     ];
 
-    grid.innerHTML = cards.join('');
+    list.innerHTML = items.join('');
+    const logLines = data.bot_log?.lines?.length ? data.bot_log.lines.join('\n') : 'No bot logs yet.';
+    botLogOutput.textContent = logLines;
   } catch (error) {
     showToast('Failed to load overview', true);
+    botLogOutput.textContent = 'Unable to load bot logs.';
   }
 };
 
@@ -70,8 +92,13 @@ const renderUsers = (users) => {
 
   users.forEach((user) => {
     const row = document.createElement('tr');
+    const statusClass = user.is_admin
+      ? 'user-name admin'
+      : user.is_alive
+      ? 'user-name alive'
+      : 'user-name dead';
     row.innerHTML = `
-      <td>${user.username || 'Unknown'}<div class="muted">${user.user_id}</div></td>
+      <td><span class="${statusClass}">${user.username || 'Unknown'}</span><div class="muted">${user.user_id}</div></td>
       <td>${user.steam_id || '—'}</td>
       <td>${user.guid || '—'}</td>
       <td>
@@ -186,7 +213,8 @@ const renderLogs = (data) => {
     cards.push(`
       <div class="log-card">
         <h3>Log Stream</h3>
-        <p class="muted">${log.path}</p>
+        <p class="muted">${log.source_path || log.path}</p>
+        ${log.resolved_path ? `<p class="muted">Resolved: ${log.resolved_path}</p>` : ''}
         <div class="meta">
           <span class="badge ${status}">${log.exists ? 'Streaming' : 'Missing'}</span>
         </div>
@@ -213,21 +241,26 @@ const loadLogs = async () => {
 };
 
 const renderSync = (data) => {
-  const grid = document.getElementById('sync-grid');
-  const cards = [];
+  const header = document.getElementById('sync-header');
+  const columns = document.getElementById('sync-columns');
+  header.innerHTML = `
+    ${formatFileCard('Syncer Whitelist', data.whitelist_sync)}
+    ${formatFileCard('Syncer Blacklist', data.blacklist_sync)}
+  `;
 
-  cards.push(formatFileCard('Syncer Whitelist', data.whitelist_sync));
-  cards.push(formatFileCard('Syncer Blacklist', data.blacklist_sync));
-
-  data.whitelist_servers.forEach((info, idx) => {
-    cards.push(formatFileCard(`Whitelist Server ${idx + 1}`, info));
-  });
-
-  data.blacklist_servers.forEach((info, idx) => {
-    cards.push(formatFileCard(`Blacklist Server ${idx + 1}`, info));
-  });
-
-  grid.innerHTML = cards.join('');
+  const maxColumns = Math.max(data.whitelist_servers.length, data.blacklist_servers.length);
+  const columnCards = [];
+  for (let i = 0; i < maxColumns; i += 1) {
+    const whitelistInfo = data.whitelist_servers[i];
+    const blacklistInfo = data.blacklist_servers[i];
+    columnCards.push(`
+      <div class="sync-column">
+        ${whitelistInfo ? formatFileCard(`Whitelist Server ${i + 1}`, whitelistInfo) : ''}
+        ${blacklistInfo ? formatFileCard(`Blacklist Server ${i + 1}`, blacklistInfo) : ''}
+      </div>
+    `);
+  }
+  columns.innerHTML = columnCards.join('');
 };
 
 const loadSync = async () => {

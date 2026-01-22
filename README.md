@@ -15,7 +15,8 @@ You can adjust the host, port, and log tail size in `config.json`:
 "web_ui" : {
   "host" : "0.0.0.0",
   "port" : 8080,
-  "log_tail_lines" : 200
+  "log_tail_lines" : 200,
+  "bot_log_path" : "./bot.log"
 }
 ```
 

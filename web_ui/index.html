@@ -35,7 +35,19 @@
             <h2>System Overview</h2>
             <p>High-level status of the bot, watcher, and syncer.</p>
           </div>
-          <div class="card-grid" id="overview-grid"></div>
+          <div class="overview-layout">
+            <div class="overview-logs">
+              <h3>Bot Logs</h3>
+              <p class="muted">Latest output from the bot runtime.</p>
+              <div class="log-card">
+                <pre id="bot-log-output">Loading...</pre>
+              </div>
+            </div>
+            <div class="overview-list">
+              <h3>Service Status</h3>
+              <ul id="overview-list"></ul>
+            </div>
+          </div>
         </section>
 
         <section class="tab-panel" id="users">
@@ -85,7 +97,10 @@
             </div>
             <button class="ghost" id="refresh-sync">Refresh</button>
           </div>
-          <div class="card-grid" id="sync-grid"></div>
+          <div class="sync-layout">
+            <div class="sync-header" id="sync-header"></div>
+            <div class="sync-columns" id="sync-columns"></div>
+          </div>
         </section>
       </main>
     </div>
