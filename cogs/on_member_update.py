@@ -28,6 +28,10 @@ class OnMemberUpdate(commands.Cog):
             # open userdata db file
             with open(config["userdata_db_path"], "r") as json_file:
                 userdata_json = json.load(json_file)
+            userdata_json, changed = normalize_userdata_db(userdata_json)
+            if (changed):
+                with open(config["userdata_db_path"], "w") as json_file:
+                    json.dump(userdata_json, json_file, indent = 4)
             keys = list(userdata_json["userdata"].keys())
             
             # If they're not in the database, do nothing
