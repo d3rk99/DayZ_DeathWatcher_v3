@@ -282,7 +282,7 @@ def player_is_queued_for_ban(player_id):
 
 
 
-def __main__():
+def run() -> None:
     global config, log_paths, path_to_bans, cache_paths, search_logs_interval, verbose_logs
     print("Starting script...")
 
@@ -378,7 +378,7 @@ def __main__():
 
 if __name__ == "__main__":
     try:
-        __main__()
+        run()
         
     except KeyboardInterrupt:
         print("Closing program...")
