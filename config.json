@@ -16,5 +16,20 @@
 	"steam_ids_to_unban_path" : "./steam_ids_to_unban.txt",
 	"error_dump_channel" : "1008220971985018980",
 	"error_dump_allow_mention" : 0,
-	"error_dump_mention_tag" : "everyone"
+	"error_dump_mention_tag" : "everyone",
+    "syncer" : {
+        "whitelist_sync_path" : "C:/Program Files (x86)/CFTools Software GmbH/Architect/Agent/deployments/Sync/whitelist.txt",
+        "blacklist_sync_path" : "C:/Program Files (x86)/CFTools Software GmbH/Architect/Agent/deployments/Sync/ban.txt",
+        "whitelist_server_paths" : [
+            "C:/Program Files (x86)/CFTools Software GmbH/Architect/Agent/deployments/MementoMori_1/whitelist.txt",
+            "C:/Program Files (x86)/CFTools Software GmbH/Architect/Agent/deployments/MementoMori_2/whitelist.txt",
+            "C:/Program Files (x86)/CFTools Software GmbH/Architect/Agent/deployments/MementoMori_3/whitelist.txt"
+        ],
+        "blacklist_server_paths" : [
+            "C:/Program Files (x86)/CFTools Software GmbH/Architect/Agent/deployments/MementoMori_1/ban.txt",
+            "C:/Program Files (x86)/CFTools Software GmbH/Architect/Agent/deployments/MementoMori_2/ban.txt",
+            "C:/Program Files (x86)/CFTools Software GmbH/Architect/Agent/deployments/MementoMori_3/ban.txt"
+        ],
+        "sync_interval_seconds" : 10
+    }
 }
