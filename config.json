@@ -17,6 +17,11 @@
 	"error_dump_channel" : "1008220971985018980",
 	"error_dump_allow_mention" : 0,
 	"error_dump_mention_tag" : "everyone",
+    "web_ui" : {
+        "host" : "0.0.0.0",
+        "port" : 8080,
+        "log_tail_lines" : 200
+    },
     "syncer" : {
         "whitelist_sync_path" : "C:/Program Files (x86)/CFTools Software GmbH/Architect/Agent/deployments/Sync/whitelist.txt",
         "blacklist_sync_path" : "C:/Program Files (x86)/CFTools Software GmbH/Architect/Agent/deployments/Sync/ban.txt",
