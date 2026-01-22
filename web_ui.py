@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from aiohttp import web
+from aiohttp import ClientSession, web
 
 BASE_DIR = Path(__file__).resolve().parent
 WEB_ROOT = BASE_DIR / "web_ui"
@@ -167,7 +167,7 @@ async def static_files(request: web.Request) -> web.Response:
 
 
 async def apply_discord_role_update(
-    session: web.ClientSession,
+    session: ClientSession,
     token: str,
     guild_id: int,
     user_id: str,
@@ -196,7 +196,7 @@ async def update_discord_roles(user_id: str, payload: Dict[str, Any], config: Di
     dead_role = config.get("dead_role")
     admin_role = config.get("admin_role_id")
 
-    async with web.ClientSession() as session:
+    async with ClientSession() as session:
         if ("is_alive" in payload and alive_role and dead_role):
             is_alive = int(payload["is_alive"]) == 1
             await apply_discord_role_update(session, token, guild_id, user_id, int(alive_role), is_alive)
