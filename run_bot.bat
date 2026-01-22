@@ -47,7 +47,7 @@ if not exist "%VENV_PY%" %PY_LAUNCHER% -m venv "%VENV_DIR%"
 start "Main Bot" /d "%~dp0" "%VENV_PY%" main.py
 start "Death Watcher" /d "%~dp0death_watcher" "%VENV_PY%" new_dayz_death_watcher.py
 start "Syncer" /d "%~dp0" "%VENV_PY%" syncer.py
-start "WebUI" /d "%~dp0" "%VENV_PY%" web_ui.py
+start "WebUI" /d "%~dp0" cmd /k "\"%VENV_PY%\" web_ui.py"
 
 popd
 endlocal
