@@ -28,6 +28,8 @@ def main():
         print("Loading config...")
         with open("config.json") as file:
             config = json.load(file)
+    config.setdefault("death_timer_seconds", 1209600)
+    config.setdefault("revive_dm_message", "You have been revived! Your dead role has been removed. Welcome back.")
     
     # create userdata db (json) file if it does not exist
     if (not os.path.isfile(config["userdata_db_path"])):
@@ -72,6 +74,8 @@ def main():
         watch_for_new_deaths.start()
     print("Watching for users to unban")
     watch_for_users_to_unban.start()
+    print("Watching for timed revives")
+    watch_for_revive_timers.start()
     
     print()
 
@@ -267,6 +271,42 @@ async def watch_for_users_to_unban():
         await dump_error_discord(text, "Unexpected error")
 
 
+@tasks.loop(seconds = 60)
+async def watch_for_revive_timers():
+    await client.wait_until_ready()
+
+    try:
+
+        with open(config["userdata_db_path"], "r") as json_file:
+            userdata_json = json.load(json_file)
+        userdata_json, changed = normalize_userdata_db(userdata_json)
+        if (changed):
+            with open(config["userdata_db_path"], "w") as json_file:
+                json.dump(userdata_json, json_file, indent = 4)
+
+        death_timer_seconds = int(config.get("death_timer_seconds", 1209600))
+        if (death_timer_seconds <= 0):
+            return
+
+        now = int(time.time())
+
+        for user_id, userdata in userdata_json["userdata"].items():
+            if (int(userdata.get("is_alive", 1)) != 0):
+                continue
+            if (int(userdata.get("is_admin", 0)) != 0):
+                continue
+            time_of_death = int(userdata.get("time_of_death", 0))
+            if (time_of_death <= 0):
+                continue
+            if (now - time_of_death) >= death_timer_seconds:
+                await unban_user(user_id, send_dm = True)
+
+    except Exception as e:
+        text = f"[WatchForReviveTimers] \"{e}\"\nIt is advised to restart this script."
+        print(text)
+        await dump_error_discord(text, "Unexpected error")
+
+
 async def set_user_as_dead(user_id):
     
     try:
@@ -339,7 +379,16 @@ async def set_user_as_dead(user_id):
         await dump_error_discord(text, "Unexpected error")
 
 
-async def unban_user(user_id):
+def format_revive_dm_message(message, member, userdata):
+    username = userdata.get("username", member.name)
+    return (message
+        .replace("{username}", str(username))
+        .replace("{display_name}", str(member.display_name))
+        .replace("{mention}", member.mention)
+    )
+
+
+async def unban_user(user_id, send_dm = False):
     
     try:
     
@@ -397,6 +446,14 @@ async def unban_user(user_id):
             await member.remove_roles(dead_role)
         if (not alive_role in member.roles):
             await member.add_roles(alive_role)
+
+        if (send_dm):
+            dm_message = config.get("revive_dm_message", "You have been revived! Your dead role has been removed. Welcome back.")
+            dm_message = format_revive_dm_message(dm_message, member, userdata)
+            try:
+                await member.send(dm_message)
+            except Exception as e:
+                print(f"[UnbanUser] Failed to send revive DM to {userdata['username']}: \"{e}\"")
         
         print(f"Successfully unbanned: {userdata['username']}")
     

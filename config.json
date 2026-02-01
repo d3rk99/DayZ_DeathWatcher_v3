@@ -11,6 +11,8 @@
 	"validate_steam_id_channel" : "1370306094089638010",
     "alive_role" : 1130857735349604382,
     "dead_role" : 997382529910837318,
+    "death_timer_seconds" : 1209600,
+    "revive_dm_message" : "You have been revived! Your dead role has been removed. Welcome back.",
     "watch_death_watcher" : 1,
     "death_watcher_death_path" : "./death_watcher/deaths.txt",
 	"steam_ids_to_unban_path" : "./steam_ids_to_unban.txt",
