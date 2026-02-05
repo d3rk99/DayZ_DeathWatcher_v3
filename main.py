@@ -6,6 +6,8 @@ import aiohttp
 import asyncio
 import json
 import time
+from threading import Thread
+from typing import Any, Callable
 
 from nextcord import Interaction, SlashOption, ChannelType
 from nextcord.abc import GuildChannel
@@ -15,8 +17,55 @@ from nextcord.member import Member
 import nextcord
 from nextcord import Webhook
 from dayz_dev_tools import guid as GUID
+from death_watcher import new_dayz_death_watcher
+import syncer
+import web_ui
 
 os.system("title " + "Life and Death Bot")
+
+def parse_bool(value: Any, default: bool = False) -> bool:
+    if (value is None):
+        return default
+    if (isinstance(value, bool)):
+        return value
+    if (isinstance(value, (int, float))):
+        return value != 0
+    if (isinstance(value, str)):
+        return value.strip().lower() in ("1", "true", "yes", "y", "on")
+    return default
+
+
+def start_background_task(name: str, target: Callable[[], None]) -> None:
+    def runner() -> None:
+        try:
+            target()
+        except Exception as e:
+            print(f"[{name}] crashed: {e}")
+    thread = Thread(target=runner, name=name, daemon=True)
+    thread.start()
+    print(f"Started {name} thread.")
+
+
+def start_subsystems() -> None:
+    run_death_watcher = parse_bool(config.get("run_death_watcher", config.get("watch_death_watcher", 1)), True)
+    run_syncer = parse_bool(config.get("run_syncer", True), True)
+    run_web_ui = parse_bool(config.get("run_web_ui", True), True)
+
+    if (run_death_watcher):
+        start_background_task("DeathWatcher", new_dayz_death_watcher.run)
+    else:
+        print("DeathWatcher disabled via config.")
+
+    if (run_syncer):
+        start_background_task("Syncer", syncer.main)
+    else:
+        print("Syncer disabled via config.")
+
+    if (run_web_ui):
+        start_background_task("WebUI", web_ui.main)
+    else:
+        print("WebUI disabled via config.")
+
 
 def main():
     global client
@@ -59,6 +108,8 @@ def main():
     client = Bot(command_prefix=config["prefix"], intents=intents)
 
     client.remove_command("help")
+    
+    start_subsystems()
     
     load_cogs()
     
