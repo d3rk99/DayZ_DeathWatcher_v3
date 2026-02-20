@@ -1,5 +1,4 @@
 import os, sys
-import aiohttp
 import json
 from email.mime import audio
 import nextcord

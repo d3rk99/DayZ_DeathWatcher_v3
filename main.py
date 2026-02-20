@@ -2,7 +2,6 @@ import os
 import platform
 import sys
 import datetime
-import aiohttp
 import asyncio
 import json
 import time
