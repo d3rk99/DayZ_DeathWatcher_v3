@@ -517,6 +517,13 @@ if (__name__ == "__main__"):
     try:
         main()
         client.run(config["token"])
+    except SystemExit as e:
+        code = e.code if isinstance(e.code, int) else 1
+        if (code != 0):
+            print(f"Script exited with error code: {code}")
+            traceback.print_exc()
+            wait_for_exit()
+        raise
     except Exception as e:
         print(f"Fatal startup/runtime error: {e}")
         traceback.print_exc()
