@@ -5,6 +5,7 @@ import datetime
 import asyncio
 import json
 import time
+import traceback
 
 from nextcord import Interaction, SlashOption, ChannelType
 from nextcord.abc import GuildChannel
@@ -504,7 +505,19 @@ async def get_user_id_from_name(username : str):
 
 
 
-if (__name__ == "__main__"):    
+def wait_for_exit(prompt = "Press Enter to close this window."):
+    try:
+        input(prompt)
+    except EOFError:
+        pass
+
+
+if (__name__ == "__main__"):
     print("Starting script...")
-    main()
-    client.run(config["token"])
+    try:
+        main()
+        client.run(config["token"])
+    except Exception as e:
+        print(f"Fatal startup/runtime error: {e}")
+        traceback.print_exc()
+        wait_for_exit()
