@@ -1,6 +1,7 @@
 import json
 import os
 import time
+import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -363,4 +364,11 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("Closing program...")
+    except Exception as e:
+        print(f"WebUI crashed with error: {e}")
+        traceback.print_exc()
+        input("Press enter to close this window.")

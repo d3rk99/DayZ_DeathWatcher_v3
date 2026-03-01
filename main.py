@@ -6,6 +6,7 @@ import aiohttp
 import asyncio
 import json
 import time
+import traceback
 
 from nextcord import Interaction, SlashOption, ChannelType
 from nextcord.abc import GuildChannel
@@ -644,6 +645,14 @@ async def get_user_id_from_name(username : str):
 
 
 if (__name__ == "__main__"):    
-    print("Starting script...")
-    main()
-    client.run(config["token"])
+    try:
+        print("Starting script...")
+        main()
+        client.run(config["token"])
+    except KeyboardInterrupt:
+        print("Closing program...")
+        time.sleep(1.0)
+    except Exception as e:
+        print(f"Ran into an unexpected exception. Error: {e}")
+        traceback.print_exc()
+        input("Press enter to close this window.")
