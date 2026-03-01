@@ -41,5 +41,6 @@
         "sync_interval_seconds": 10
     },
     "death_watcher_alive_time_path": "./death_watcher/alive_times.txt",
-    "alive_leaderboard_channel_id": -1
+    "alive_leaderboard_channel_id": -1,
+    "leaderboard_text_channel_id": -1
 }

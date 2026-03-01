@@ -32,6 +32,7 @@ def main():
     config.setdefault("revive_dm_message", "You have been revived! Your dead role has been removed. Welcome back.")
     config.setdefault("death_watcher_alive_time_path", "./death_watcher/alive_times.txt")
     config.setdefault("alive_leaderboard_channel_id", -1)
+    config.setdefault("leaderboard_text_channel_id", config.get("alive_leaderboard_channel_id", -1))
     
     # create userdata db (json) file if it does not exist
     if (not os.path.isfile(config["userdata_db_path"])):
@@ -132,7 +133,7 @@ def format_duration(total_seconds: int) -> str:
 
 
 async def update_alive_leaderboard_message(userdata_json):
-    channel_id = int(config.get("alive_leaderboard_channel_id", -1))
+    channel_id = int(config.get("leaderboard_text_channel_id", config.get("alive_leaderboard_channel_id", -1)))
     if (channel_id <= 0):
         return
 

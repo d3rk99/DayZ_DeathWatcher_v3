@@ -28,3 +28,14 @@ deathwatcher:
     - "D:\\Servers\\Chernarus\\profiles\\logs"
     - "D:\\Servers\\Livonia\\profiles\\logs"
 ```
+
+
+## Leaderboard config
+
+Add the leaderboard channel in `config.json`:
+
+```json
+"leaderboard_text_channel_id": 123456789012345678
+```
+
+The bot will post and edit the Top 10 alive-time leaderboard in that text channel.
