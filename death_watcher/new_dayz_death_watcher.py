@@ -225,12 +225,24 @@ def read_new_lines(log_path, cache_entry):
     return [line for line in lines if line], log_file_path
 
 
-def parse_death_event(line: str, source_path: str) -> Optional[DeathEvent]:
-    if (not line.lstrip().startswith("{")):
+def parse_json_log_line(line: str) -> Optional[Dict[str, Any]]:
+    json_start_index = line.find("{")
+    if (json_start_index < 0):
         return None
+
+    payload = line[json_start_index:].strip()
+    if (not payload.startswith("{")):
+        return None
+
     try:
-        log_data = json.loads(line)
+        return json.loads(payload)
     except Exception:
+        return None
+
+
+def parse_death_event(line: str, source_path: str) -> Optional[DeathEvent]:
+    log_data = parse_json_log_line(line)
+    if (log_data is None):
         return None
     if (log_data.get("event") != "PLAYER_DEATH"):
         return None
@@ -250,14 +262,17 @@ def parse_death_event(line: str, source_path: str) -> Optional[DeathEvent]:
 
 
 def parse_alive_time_event(line: str, source_path: str) -> Optional[AliveTimeEvent]:
-    if (not line.lstrip().startswith("{")):
-        return None
-    try:
-        log_data = json.loads(line)
-    except Exception:
+    log_data = parse_json_log_line(line)
+    if (log_data is None):
         return None
 
-    if (log_data.get("event") != "PLAYER_DISCONNECT"):
+    event_name = str(log_data.get("event", "")).strip()
+    sub_event_name = str(log_data.get("sub_event", "")).strip()
+    is_disconnect_event = (
+        event_name == "PLAYER_DISCONNECT"
+        or (event_name == "PLAYER_MANAGEMENT" and sub_event_name == "disconnect")
+    )
+    if (not is_disconnect_event):
         return None
 
     player_data = log_data.get("player", {})
@@ -268,6 +283,8 @@ def parse_alive_time_event(line: str, source_path: str) -> Optional[AliveTimeEve
     alive_seconds = player_data.get("aliveSec")
     if (alive_seconds is None):
         alive_seconds = log_data.get("aliveSec")
+    if (alive_seconds is None):
+        alive_seconds = log_data.get("data", {}).get("sessionTime")
     if (alive_seconds is None):
         return None
 

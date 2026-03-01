@@ -31,6 +31,17 @@ PLAYER_DISCONNECT_WITHOUT_ALIVE_LINE = (
     '"player":{"steamId":"76561198009232482"}}'
 )
 
+PLAYER_MANAGEMENT_DISCONNECT_LINE = (
+    '[335] {"ts":"2026-03-01T14:58:41.373","event":"PLAYER_MANAGEMENT","sub_event":"disconnect",'
+    '"data":{"reason":"logout","sessionTime":391},'
+    '"player":{"steamId":"76561198009232482","aliveSec":579}}'
+)
+
+PLAYER_MANAGEMENT_DISCONNECT_SESSION_ONLY_LINE = (
+    '[336] {"ts":"2026-03-01T14:59:41.373","event":"PLAYER_MANAGEMENT","sub_event":"disconnect",'
+    '"data":{"reason":"logout","sessionTime":612},"player":{"steamId":"76561198009232482"}}'
+)
+
 
 def test_player_death_triggers():
     event = dw.parse_death_event(PLAYER_DEATH_LINE, "source")
@@ -91,3 +102,17 @@ def test_player_disconnect_with_alive_time_triggers():
 def test_player_disconnect_without_alive_time_does_not_trigger():
     event = dw.parse_alive_time_event(PLAYER_DISCONNECT_WITHOUT_ALIVE_LINE, "source")
     assert event is None
+
+
+def test_player_management_disconnect_with_alive_time_triggers():
+    event = dw.parse_alive_time_event(PLAYER_MANAGEMENT_DISCONNECT_LINE, "source")
+    assert event is not None
+    assert event.steam_id == "76561198009232482"
+    assert event.alive_seconds == 579
+
+
+def test_player_management_disconnect_with_session_time_fallback_triggers():
+    event = dw.parse_alive_time_event(PLAYER_MANAGEMENT_DISCONNECT_SESSION_ONLY_LINE, "source")
+    assert event is not None
+    assert event.steam_id == "76561198009232482"
+    assert event.alive_seconds == 612
