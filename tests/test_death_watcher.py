@@ -1,7 +1,11 @@
 import sys
+import types
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+guid_module = types.SimpleNamespace(guid_for_steamid64=lambda steam_id: steam_id)
+sys.modules.setdefault("dayz_dev_tools", types.SimpleNamespace(guid=guid_module))
 
 import death_watcher.new_dayz_death_watcher as dw
 
@@ -15,6 +19,16 @@ PLAYER_DEATH_LINE = (
 PLAYER_DEATH_ZERO_SUICIDE_LINE = (
     '{"ts":"2026-01-20T20:43:04.889","event":"PLAYER_DEATH","sub_event":"suicide",'
     '"player":{"steamId":"76561198009232482","position":{"x":0,"y":0,"z":0}}}'
+)
+
+PLAYER_DISCONNECT_LINE = (
+    '{"ts":"2026-01-20T21:20:00.000","event":"PLAYER_DISCONNECT",'
+    '"player":{"steamId":"76561198009232482","aliveSec":3605}}'
+)
+
+PLAYER_DISCONNECT_WITHOUT_ALIVE_LINE = (
+    '{"ts":"2026-01-20T21:20:00.000","event":"PLAYER_DISCONNECT",'
+    '"player":{"steamId":"76561198009232482"}}'
 )
 
 
@@ -65,3 +79,15 @@ def test_multiple_log_folders_yield_events(tmp_path):
         "76561198009232482",
         "11111111111111111",
     }
+
+
+def test_player_disconnect_with_alive_time_triggers():
+    event = dw.parse_alive_time_event(PLAYER_DISCONNECT_LINE, "source")
+    assert event is not None
+    assert event.steam_id == "76561198009232482"
+    assert event.alive_seconds == 3605
+
+
+def test_player_disconnect_without_alive_time_does_not_trigger():
+    event = dw.parse_alive_time_event(PLAYER_DISCONNECT_WITHOUT_ALIVE_LINE, "source")
+    assert event is None

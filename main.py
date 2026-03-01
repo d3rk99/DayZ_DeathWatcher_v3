@@ -30,6 +30,8 @@ def main():
             config = json.load(file)
     config.setdefault("death_timer_seconds", 1209600)
     config.setdefault("revive_dm_message", "You have been revived! Your dead role has been removed. Welcome back.")
+    config.setdefault("death_watcher_alive_time_path", "./death_watcher/alive_times.txt")
+    config.setdefault("alive_leaderboard_channel_id", -1)
     
     # create userdata db (json) file if it does not exist
     if (not os.path.isfile(config["userdata_db_path"])):
@@ -72,6 +74,8 @@ def main():
     if (watch_death_watcher_bans):
         print("\nWatching for new death watcher deaths")
         watch_for_new_deaths.start()
+        print("Watching for alive-time disconnect updates")
+        watch_for_alive_time_updates.start()
     print("Watching for users to unban")
     watch_for_users_to_unban.start()
     print("Watching for timed revives")
@@ -99,7 +103,140 @@ def normalize_userdata_db(userdata_json):
     if ("season_deaths" not in userdata_json or not isinstance(userdata_json["season_deaths"], list)):
         userdata_json["season_deaths"] = []
         changed = True
+    if ("alive_leaderboard_message_id" not in userdata_json):
+        userdata_json["alive_leaderboard_message_id"] = 0
+        changed = True
+
+    for user_id, userdata in userdata_json["userdata"].items():
+        if (not isinstance(userdata, dict)):
+            userdata_json["userdata"][user_id] = {}
+            userdata = userdata_json["userdata"][user_id]
+            changed = True
+
+        if ("best_alive_seconds" not in userdata):
+            userdata["best_alive_seconds"] = 0
+            changed = True
+        if ("last_alive_seconds" not in userdata):
+            userdata["last_alive_seconds"] = 0
+            changed = True
+
     return userdata_json, changed
+
+
+def format_duration(total_seconds: int) -> str:
+    total_seconds = max(0, int(total_seconds))
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+    return f"{hours}h {minutes}m {seconds}s"
+
+
+async def update_alive_leaderboard_message(userdata_json):
+    channel_id = int(config.get("alive_leaderboard_channel_id", -1))
+    if (channel_id <= 0):
+        return
+
+    channel = client.get_channel(channel_id)
+    if (channel == None):
+        print(f"[AliveLeaderboard] Failed to find channel with id: {channel_id}")
+        return
+
+    rows = []
+    for user_id, userdata in userdata_json["userdata"].items():
+        best_alive_seconds = int(userdata.get("best_alive_seconds", 0))
+        if (best_alive_seconds <= 0):
+            continue
+        rows.append((user_id, best_alive_seconds, userdata.get("username", "Unknown")))
+
+    rows.sort(key = lambda row: row[1], reverse = True)
+    rows = rows[:10]
+
+    description = ["🏆 **Top 10 Longest Survivor Streaks**"]
+    if (len(rows) == 0):
+        description.append("No disconnect alive-time records yet.")
+    else:
+        for index, (user_id, alive_seconds, username) in enumerate(rows, start = 1):
+            description.append(f"{index}. <@{user_id}> ({username}) — **{format_duration(alive_seconds)}**")
+
+    message_text = "\n".join(description)
+
+    message_id = int(userdata_json.get("alive_leaderboard_message_id", 0))
+    leaderboard_message = None
+    if (message_id > 0):
+        try:
+            leaderboard_message = await channel.fetch_message(message_id)
+        except Exception:
+            leaderboard_message = None
+
+    if (leaderboard_message == None):
+        leaderboard_message = await channel.send(message_text)
+        userdata_json["alive_leaderboard_message_id"] = int(leaderboard_message.id)
+    else:
+        await leaderboard_message.edit(content = message_text)
+
+
+@tasks.loop(seconds = 2)
+async def watch_for_alive_time_updates():
+    await client.wait_until_ready()
+
+    try:
+        alive_times_path = config.get("death_watcher_alive_time_path", "./death_watcher/alive_times.txt")
+
+        if (not os.path.isfile(alive_times_path)):
+            with open(alive_times_path, "w") as file:
+                file.write("")
+            return
+
+        with open(alive_times_path, "r") as file:
+            alive_time_lines = [line.strip() for line in file.readlines() if line.strip()]
+
+        if (len(alive_time_lines) == 0):
+            return
+
+        with open(config["userdata_db_path"], "r") as json_file:
+            userdata_json = json.load(json_file)
+        userdata_json, changed = normalize_userdata_db(userdata_json)
+
+        updated_users = 0
+        for line in alive_time_lines:
+            try:
+                alive_payload = json.loads(line)
+            except Exception:
+                continue
+
+            steam_id = str(alive_payload.get("steam_id", "")).strip()
+            if (steam_id == ""):
+                continue
+
+            try:
+                alive_seconds = int(float(alive_payload.get("alive_seconds", 0)))
+            except Exception:
+                continue
+
+            if (alive_seconds < 0):
+                continue
+
+            for user_id, userdata in userdata_json["userdata"].items():
+                if (str(userdata.get("steam_id", "")) != steam_id):
+                    continue
+
+                userdata["last_alive_seconds"] = alive_seconds
+                userdata["best_alive_seconds"] = max(int(userdata.get("best_alive_seconds", 0)), alive_seconds)
+                updated_users += 1
+                break
+
+        if (updated_users > 0 or changed):
+            await update_alive_leaderboard_message(userdata_json)
+            with open(config["userdata_db_path"], "w") as json_file:
+                json.dump(userdata_json, json_file, indent = 4)
+
+        with open(alive_times_path, "w") as file:
+            file.write("")
+
+    except Exception as e:
+        text = f"[WatchForAliveTimeUpdates] \"{e}\"\nIt is advised to restart this script."
+        print(text)
+        await dump_error_discord(text, "Unexpected error")
 
 
 @tasks.loop(seconds = 2)

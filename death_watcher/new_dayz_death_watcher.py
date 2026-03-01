@@ -12,6 +12,7 @@ os.system("title " + "DayZ Death Watcher")
 config: Dict[str, Any] = {}
 log_paths: List[str] = []
 path_to_bans = ""
+path_to_alive_times = ""
 cache_paths: List[str] = []
 search_logs_interval = 1
 verbose_logs = 1
@@ -21,6 +22,7 @@ cache_path_by_log: Dict[str, str] = {}
 CONFIG_DEFAULT = """{
   "log_paths" : ["../profiles/DayZServer_x64.ADM"],
   "path_to_bans" : "./deaths.txt",
+  "path_to_alive_times" : "./alive_times.txt",
   "cache_paths" : ["./death_watcher_cache.json"],
   "ban_delay" : 5,
   "search_logs_interval" : 1,
@@ -31,6 +33,15 @@ CONFIG_DEFAULT = """{
 @dataclass
 class DeathEvent:
     steam_id: str
+    ts: Optional[str]
+    raw: Dict[str, Any]
+    source_path: str
+
+
+@dataclass
+class AliveTimeEvent:
+    steam_id: str
+    alive_seconds: int
     ts: Optional[str]
     raw: Dict[str, Any]
     source_path: str
@@ -238,6 +249,60 @@ def parse_death_event(line: str, source_path: str) -> Optional[DeathEvent]:
     return DeathEvent(steam_id=player_id, ts=log_data.get("ts"), raw=log_data, source_path=source_path)
 
 
+def parse_alive_time_event(line: str, source_path: str) -> Optional[AliveTimeEvent]:
+    if (not line.lstrip().startswith("{")):
+        return None
+    try:
+        log_data = json.loads(line)
+    except Exception:
+        return None
+
+    if (log_data.get("event") != "PLAYER_DISCONNECT"):
+        return None
+
+    player_data = log_data.get("player", {})
+    player_id = player_data.get("steamId")
+    if (not player_id):
+        return None
+
+    alive_seconds = player_data.get("aliveSec")
+    if (alive_seconds is None):
+        alive_seconds = log_data.get("aliveSec")
+    if (alive_seconds is None):
+        return None
+
+    try:
+        alive_seconds = int(float(alive_seconds))
+    except Exception:
+        return None
+
+    if (alive_seconds < 0):
+        return None
+
+    return AliveTimeEvent(
+        steam_id=str(player_id),
+        alive_seconds=alive_seconds,
+        ts=log_data.get("ts"),
+        raw=log_data,
+        source_path=source_path,
+    )
+
+
+def append_alive_time_event(event: AliveTimeEvent) -> None:
+    if (not path_to_alive_times):
+        return
+
+    payload = {
+        "steam_id": event.steam_id,
+        "alive_seconds": event.alive_seconds,
+        "ts": event.ts,
+        "source_path": event.source_path,
+    }
+
+    with open(path_to_alive_times, "a") as file:
+        file.write(json.dumps(payload) + "\n")
+
+
 def update_cache(log_path: str):
     cache_path = cache_path_by_log.get(log_path)
     if (not cache_path):
@@ -283,13 +348,14 @@ def player_is_queued_for_ban(player_id):
 
 
 def __main__():
-    global config, log_paths, path_to_bans, cache_paths, search_logs_interval, verbose_logs
+    global config, log_paths, path_to_bans, path_to_alive_times, cache_paths, search_logs_interval, verbose_logs
     print("Starting script...")
 
     config = load_config()
     try:
         log_paths = normalize_log_paths(config)
         path_to_bans = config["path_to_bans"]
+        path_to_alive_times = config.get("path_to_alive_times", "./alive_times.txt")
         cache_paths = normalize_cache_paths(config, log_paths)
         search_logs_interval = int(config["search_logs_interval"])
         verbose_logs = int(config["verbose_logs"])
@@ -319,6 +385,11 @@ def __main__():
         print(f"Failed to find ban file: \"{path_to_bans}\"")
         input("Press enter to close this window.")
         sys.exit(0)
+
+    if (not os.path.isfile(path_to_alive_times)):
+        print(f"Alive-time cache file ({path_to_alive_times}) not found. Creating it now.")
+        with open(path_to_alive_times, "w") as file:
+            file.write("")
     
     
     log_number = 0
@@ -361,6 +432,15 @@ def __main__():
                             print(f"    This player will be banned in {time_to_ban_player - time.time()} seconds.")
                     if (verbose_logs):
                         print()
+
+                alive_time_event = parse_alive_time_event(line, log_file_path)
+                if (alive_time_event):
+                    append_alive_time_event(alive_time_event)
+                    if (verbose_logs):
+                        print(
+                            f"Found disconnect log with alive time: "
+                            f"steam_id={alive_time_event.steam_id}, alive_seconds={alive_time_event.alive_seconds}"
+                        )
 
                 log_number += 1
 

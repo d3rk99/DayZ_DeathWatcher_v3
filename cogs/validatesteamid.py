@@ -123,7 +123,9 @@ class ValidateSteamId(commands.Cog):
                 'guid' : str(guid),
                 'is_alive' : 1,
                 'time_of_death' : 0,
-                'is_admin' : 0
+                'is_admin' : 0,
+                'best_alive_seconds' : 0,
+                'last_alive_seconds' : 0
             }
             
             # store their userdata in db
