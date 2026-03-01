@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import time
+import traceback
 from typing import Dict, List
 
 os.system("title " + "DayZ Syncer")
@@ -95,4 +96,16 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("Closing program...")
+        input("Press enter to close this window.")
+    except SystemExit as exc:
+        print(f"Syncer exited: {exc}")
+        traceback.print_exc()
+        input("Press enter to close this window.")
+    except Exception as e:
+        print(f"Syncer crashed with error: {e}")
+        traceback.print_exc()
+        input("Press enter to close this window.")
