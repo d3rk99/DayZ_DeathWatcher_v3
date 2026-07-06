@@ -20,13 +20,17 @@ cache_entries: Dict[str, Dict[str, Any]] = {}
 cache_path_by_log: Dict[str, str] = {}
 
 CONFIG_DEFAULT = """{
-  "log_paths" : ["../profiles/DayZServer_x64.ADM"],
-  "path_to_bans" : "./deaths.txt",
-  "path_to_alive_times" : "./alive_times.txt",
-  "cache_paths" : ["./death_watcher_cache.json"],
-  "ban_delay" : 5,
-  "search_logs_interval" : 1,
-  "verbose_logs" : 1
+  "log_paths": [
+    "C:/Path/To/Your/Server/profiles/DetailedLogs"
+  ],
+  "path_to_bans": "./deaths.txt",
+  "path_to_alive_times": "./alive_times.txt",
+  "cache_paths": [
+    "./death_watcher_cache.json"
+  ],
+  "ban_delay": 5,
+  "search_logs_interval": 1,
+  "verbose_logs": 1
 }"""
 
 

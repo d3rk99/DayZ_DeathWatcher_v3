@@ -1,0 +1,44 @@
+{
+    "prefix": "*",
+    "token": "PASTE_YOUR_DISCORD_BOT_TOKEN_HERE",
+    "sync_enabled": false,
+
+    "whitelist_path": "C:/Path/To/Your/Server/whitelist.txt",
+    "blacklist_path": "C:/Path/To/Your/Server/ban.txt",
+    "userdata_db_path": "./userdata_db.json",
+    "death_watcher_death_path": "./death_watcher/deaths.txt",
+    "death_watcher_alive_time_path": "./death_watcher/alive_times.txt",
+    "steam_ids_to_unban_path": "./steam_ids_to_unban.txt",
+
+    "guild_id": "YOUR_DISCORD_SERVER_ID",
+    "admin_role_id": "YOUR_ADMIN_ROLE_ID",
+    "alive_role": "YOUR_ALIVE_ROLE_ID",
+    "dead_role": "YOUR_DEAD_ROLE_ID",
+    "join_vc_id": "YOUR_JOIN_VOICE_CHANNEL_ID",
+    "join_vc_category_id": "YOUR_TEMPORARY_VOICE_CATEGORY_ID",
+    "validate_steam_id_channel": "YOUR_VALIDATE_STEAM_ID_CHANNEL_ID",
+    "error_dump_channel": "-1",
+
+    "death_timer_seconds": 1209600,
+    "revive_dm_message": "You have been revived! Your dead role has been removed. Welcome back.",
+    "watch_death_watcher": true,
+
+    "error_dump_allow_mention": false,
+    "error_dump_mention_tag": "everyone",
+
+    "web_ui": {
+        "host": "127.0.0.1",
+        "port": 8080,
+        "log_tail_lines": 200,
+        "bot_log_path": "./bot.log"
+    },
+
+    "syncer": {
+        "whitelist_server_paths": [],
+        "blacklist_server_paths": [],
+        "sync_interval_seconds": 10
+    },
+
+    "alive_leaderboard_channel_id": -1,
+    "leaderboard_text_channel_id": -1
+}

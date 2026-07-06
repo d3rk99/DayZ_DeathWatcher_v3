@@ -4,6 +4,8 @@ import platform
 import json
 import nextcord
 from nextcord.ext import commands
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
+from config_loader import load_config as load_validated_config
 from main import *
 
 class Onready(commands.Cog):
@@ -12,8 +14,7 @@ class Onready(commands.Cog):
         self.client = client
 
     global config
-    with open("config.json") as file:
-        config = json.load(file)
+    config, _ = load_validated_config("config.json", check_files=False)
 
     @commands.Cog.listener()
     async def on_ready(self):

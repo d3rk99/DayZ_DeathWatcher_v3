@@ -6,6 +6,7 @@ import nextcord
 from nextcord.ext import commands
 from nextcord import Webhook
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
+from config_loader import config_bool, load_config as load_validated_config
 from main import *
 import asyncio
 
@@ -15,8 +16,7 @@ class ExtraCommands(commands.Cog):
         self.client = client
         
     global config
-    with open("config.json") as file:
-        config = json.load(file)
+    config, _ = load_validated_config("config.json", check_files=False)
     
     
     @nextcord.slash_command(name="userdata", description="Gets userdata from either discord id, or steam id.")
@@ -170,7 +170,7 @@ class ExtraCommands(commands.Cog):
                     mention = force_mention_tag
                 else:
                     mention = await self.get_user_id_from_name(force_mention_tag)
-            if (mention == "" and str(config["error_dump_allow_mention"]) != "0"):
+            if (mention == "" and config_bool(config["error_dump_allow_mention"])):
                 mention = config["error_dump_mention_tag"]
                 if (mention != "" and mention != "everyone" and mention != "here"):
                     mention = await self.get_user_id_from_name(mention)

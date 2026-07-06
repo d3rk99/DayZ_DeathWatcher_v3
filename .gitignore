@@ -1,0 +1,14 @@
+config.json
+userdata_db.json
+*.log
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.runtime/
+death_watcher/config.json
+death_watcher/deaths.txt
+death_watcher/Deaths.txt
+death_watcher/alive_times.txt
+death_watcher/death_watcher_cache*.json
+steam_ids_to_unban.txt

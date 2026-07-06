@@ -4,25 +4,12 @@ import sys
 import time
 import traceback
 from typing import Dict, List
+from pathlib import Path
+
+from config_loader import ConfigError, load_config, sync_startup_message
 
 os.system("title " + "DayZ Syncer")
-
-
-def load_config(config_path: str = "./config.json") -> Dict[str, object]:
-    if (not os.path.isfile(config_path)):
-        sys.exit("'config.json' not found!")
-    with open(config_path, "r") as file:
-        return json.load(file)
-
-
-def ensure_file_exists(path: str, label: str) -> None:
-    directory = os.path.dirname(path)
-    if (directory and not os.path.isdir(directory)):
-        sys.exit(f"{label} directory does not exist: {directory}")
-    if (not os.path.isfile(path)):
-        print(f"{label} file missing, creating: {path}")
-        with open(path, "w") as file:
-            file.write("")
+STATUS_PATH = Path(".runtime") / "syncer_status.json"
 
 
 def normalize_entries(raw_lines: List[str]) -> List[str]:
@@ -44,8 +31,11 @@ def read_entries(path: str) -> List[str]:
 
 
 def write_entries(path: str, entries: List[str]) -> None:
-    with open(path, "w") as file:
+    target = Path(path)
+    temp_path = target.with_name(f"{target.name}.tmp")
+    with open(temp_path, "w") as file:
         file.write("\n".join(entries))
+    os.replace(temp_path, target)
 
 
 def sync_list(sync_path: str, server_paths: List[str], label: str) -> None:
@@ -58,40 +48,49 @@ def sync_list(sync_path: str, server_paths: List[str], label: str) -> None:
             print(f"Synced {label} list: {server_path}")
 
 
-def main() -> None:
-    config = load_config()
-    syncer_config = config.get("syncer", None)
-    if (not isinstance(syncer_config, dict)):
-        sys.exit("Syncer config missing. Please add a 'syncer' section to config.json.")
+def write_status(status: str, message: str) -> None:
+    STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "status": status,
+        "message": message,
+        "updated_at": time.time(),
+    }
+    temp_path = STATUS_PATH.with_name(f"{STATUS_PATH.name}.tmp")
+    with open(temp_path, "w") as file:
+        json.dump(payload, file, indent=2)
+    os.replace(temp_path, STATUS_PATH)
 
-    whitelist_sync_path = syncer_config.get("whitelist_sync_path", "")
-    blacklist_sync_path = syncer_config.get("blacklist_sync_path", "")
+
+def main() -> None:
+    try:
+        config, config_warnings = load_config(require_discord=False)
+    except ConfigError as exc:
+        write_status("misconfigured", str(exc))
+        sys.exit(f"Configuration error: {exc}")
+    for warning in config_warnings:
+        print(f"Configuration warning: {warning}")
+    print(sync_startup_message(config))
+
+    if (not config.get("sync_enabled", False)):
+        write_status("disabled", "Sync disabled: running in single-server mode.")
+        return
+
+    syncer_config = config["syncer"]
+    whitelist_sync_path = config["whitelist_path"]
+    blacklist_sync_path = config["blacklist_path"]
     whitelist_server_paths = syncer_config.get("whitelist_server_paths", [])
     blacklist_server_paths = syncer_config.get("blacklist_server_paths", [])
     sync_interval_seconds = int(syncer_config.get("sync_interval_seconds", 10))
-
-    if (not whitelist_sync_path or not blacklist_sync_path):
-        sys.exit("Syncer config requires whitelist_sync_path and blacklist_sync_path.")
-    if (not isinstance(whitelist_server_paths, list) or not whitelist_server_paths):
-        sys.exit("Syncer config requires whitelist_server_paths as a non-empty list.")
-    if (not isinstance(blacklist_server_paths, list) or not blacklist_server_paths):
-        sys.exit("Syncer config requires blacklist_server_paths as a non-empty list.")
-
-    ensure_file_exists(whitelist_sync_path, "Whitelist sync")
-    ensure_file_exists(blacklist_sync_path, "Blacklist sync")
-
-    for path in whitelist_server_paths:
-        ensure_file_exists(path, "Whitelist server")
-    for path in blacklist_server_paths:
-        ensure_file_exists(path, "Blacklist server")
 
     print("Syncer running. Watching for whitelist/blacklist updates.")
     while True:
         try:
             sync_list(whitelist_sync_path, whitelist_server_paths, "whitelist")
             sync_list(blacklist_sync_path, blacklist_server_paths, "blacklist")
+            write_status("running", "Syncer copied master lists to configured server targets.")
         except Exception as exc:
             print(f"Syncer error: {exc}")
+            write_status("error", str(exc))
         time.sleep(sync_interval_seconds)
 
 
@@ -100,11 +99,8 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         print("Closing program...")
-        input("Press enter to close this window.")
     except SystemExit as exc:
         print(f"Syncer exited: {exc}")
-        traceback.print_exc()
-        input("Press enter to close this window.")
     except Exception as e:
         print(f"Syncer crashed with error: {e}")
         traceback.print_exc()

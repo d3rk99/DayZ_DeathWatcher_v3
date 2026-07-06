@@ -56,6 +56,22 @@ const formatOverviewItem = (label, info) => {
   `;
 };
 
+const formatStatusItem = (label, status) => {
+  const state = status?.state || 'unknown';
+  const statusClass = state === 'running' || state === 'disabled' ? 'ok' : 'warn';
+  return `
+    <li>
+      <div>
+        <strong>${label}</strong>
+        <span class="muted">${status?.message || 'Status unavailable'}</span>
+      </div>
+      <div class="meta">
+        <span class="badge ${statusClass}">${status?.label || state}</span>
+      </div>
+    </li>
+  `;
+};
+
 const loadOverview = async () => {
   const list = document.getElementById('overview-list');
   const botLogOutput = document.getElementById('bot-log-output');
@@ -69,9 +85,13 @@ const loadOverview = async () => {
       formatOverviewItem('Whitelist', data.whitelist),
       formatOverviewItem('Blacklist', data.blacklist),
       formatOverviewItem('Death Watcher Deaths', data.death_watcher_deaths),
-      formatOverviewItem('Syncer Whitelist', data.syncer.whitelist_sync),
-      formatOverviewItem('Syncer Blacklist', data.syncer.blacklist_sync),
+      formatStatusItem('Synchronization', data.syncer.status),
     ];
+
+    if (data.syncer.enabled) {
+      items.push(formatOverviewItem('Master Whitelist', data.syncer.whitelist_sync));
+      items.push(formatOverviewItem('Master Blacklist', data.syncer.blacklist_sync));
+    }
 
     list.innerHTML = items.join('');
     const logLines = data.bot_log?.lines?.length ? data.bot_log.lines.join('\n') : 'No bot logs yet.';
@@ -243,9 +263,34 @@ const loadLogs = async () => {
 const renderSync = (data) => {
   const header = document.getElementById('sync-header');
   const columns = document.getElementById('sync-columns');
+  const state = data.status?.state || 'unknown';
+  const statusClass = state === 'running' || state === 'disabled' ? 'ok' : 'warn';
+
+  if (!data.enabled) {
+    header.innerHTML = `
+      <div class="card">
+        <h3>Synchronization</h3>
+        <p>${data.status?.message || 'Sync disabled: running in single-server mode.'}</p>
+        <div class="meta">
+          <span class="badge ${statusClass}">${data.status?.label || 'Disabled'}</span>
+        </div>
+      </div>
+    `;
+    columns.innerHTML = '';
+    return;
+  }
+
   header.innerHTML = `
-    ${formatFileCard('Syncer Whitelist', data.whitelist_sync)}
-    ${formatFileCard('Syncer Blacklist', data.blacklist_sync)}
+    <div class="card">
+      <h3>Synchronization</h3>
+      <p>${data.status?.message || 'Status unavailable'}</p>
+      <div class="meta">
+        <span class="badge ${statusClass}">${data.status?.label || state}</span>
+        <span class="badge">Interval: ${data.sync_interval_seconds || 'â€”'}s</span>
+      </div>
+    </div>
+    ${formatFileCard('Master Whitelist', data.whitelist_sync)}
+    ${formatFileCard('Master Blacklist', data.blacklist_sync)}
   `;
 
   const maxColumns = Math.max(data.whitelist_servers.length, data.blacklist_servers.length);

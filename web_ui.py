@@ -7,13 +7,15 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from aiohttp import ClientSession, web
+from config_loader import ConfigError, load_config as load_validated_config, sync_startup_message
 
 BASE_DIR = Path(__file__).resolve().parent
 WEB_ROOT = BASE_DIR / "web_ui"
 STATIC_ROOT = WEB_ROOT / "static"
+SYNC_STATUS_PATH = BASE_DIR / ".runtime" / "syncer_status.json"
 
 DEFAULT_WEB_CONFIG = {
-    "host": "0.0.0.0",
+    "host": "127.0.0.1",
     "port": 8080,
     "log_tail_lines": 200,
     "bot_log_path": "./bot.log",
@@ -21,13 +23,11 @@ DEFAULT_WEB_CONFIG = {
 
 
 def load_config() -> Dict[str, Any]:
-    if (not Path("config.json").is_file()):
-        raise FileNotFoundError("config.json not found. Please create it before starting the WebUI.")
-    with open("config.json", "r") as file:
-        config = json.load(file)
+    config, warnings = load_validated_config(check_files=False, require_discord=False)
     web_config = config.get("web_ui", {})
     merged_web_config = {**DEFAULT_WEB_CONFIG, **web_config}
     config["web_ui"] = merged_web_config
+    config["_config_warnings"] = warnings
     return config
 
 
@@ -73,6 +73,8 @@ def format_timestamp(ts: Optional[float]) -> Optional[str]:
 
 
 def file_info(path_value: str) -> Dict[str, Any]:
+    if (not path_value):
+        return {"path": None, "exists": False}
     path = safe_path(path_value)
     info: Dict[str, Any] = {"path": str(path), "exists": path.is_file()}
     if (path.is_file()):
@@ -128,6 +130,52 @@ def read_death_watcher_config() -> Dict[str, Any]:
         return {}
     with open(config_path, "r") as file:
         return json.load(file)
+
+
+def read_sync_status(config: Dict[str, Any]) -> Dict[str, Any]:
+    if (not config.get("sync_enabled", False)):
+        return {
+            "state": "disabled",
+            "label": "Disabled",
+            "message": "Sync disabled: running in single-server mode.",
+        }
+
+    try:
+        _, warnings = load_validated_config(check_files=True, require_discord=False)
+    except ConfigError as exc:
+        return {
+            "state": "misconfigured",
+            "label": "Misconfigured",
+            "message": str(exc),
+        }
+
+    status_payload: Dict[str, Any] = {}
+    if (SYNC_STATUS_PATH.is_file()):
+        try:
+            with open(SYNC_STATUS_PATH, "r") as file:
+                status_payload = json.load(file)
+        except Exception:
+            status_payload = {}
+
+    interval = int(config.get("syncer", {}).get("sync_interval_seconds", 10))
+    updated_at = float(status_payload.get("updated_at", 0) or 0)
+    is_fresh = (time.time() - updated_at) <= max(30, interval * 3)
+    if (status_payload.get("status") == "running" and is_fresh):
+        return {
+            "state": "running",
+            "label": "Running",
+            "message": sync_startup_message(config),
+            "updated_at": updated_at,
+            "warnings": warnings,
+        }
+
+    return {
+        "state": "stopped",
+        "label": "Stopped unexpectedly",
+        "message": "Sync is enabled, but the syncer heartbeat is missing or stale.",
+        "updated_at": updated_at or None,
+        "warnings": warnings,
+    }
 
 
 def extract_log_paths(dw_config: Dict[str, Any]) -> List[str]:
@@ -299,14 +347,17 @@ async def api_logs(request: web.Request) -> web.Response:
 async def api_sync(request: web.Request) -> web.Response:
     config = request.app["config"]
     syncer_config = config.get("syncer", {})
+    status = read_sync_status(config)
 
-    whitelist_sync = syncer_config.get("whitelist_sync_path")
-    blacklist_sync = syncer_config.get("blacklist_sync_path")
+    whitelist_sync = config.get("whitelist_path")
+    blacklist_sync = config.get("blacklist_path")
 
     whitelist_servers = syncer_config.get("whitelist_server_paths", [])
     blacklist_servers = syncer_config.get("blacklist_server_paths", [])
 
     return web.json_response({
+        "enabled": bool(config.get("sync_enabled", False)),
+        "status": status,
         "sync_interval_seconds": syncer_config.get("sync_interval_seconds"),
         "whitelist_sync": file_info(whitelist_sync) if whitelist_sync else {"path": None, "exists": False},
         "blacklist_sync": file_info(blacklist_sync) if blacklist_sync else {"path": None, "exists": False},
@@ -329,9 +380,11 @@ async def api_overview(request: web.Request) -> web.Response:
         "death_watcher_deaths": file_info(config.get("death_watcher_death_path", "")),
         "bot_log": bot_log,
         "syncer": {
+            "enabled": bool(config.get("sync_enabled", False)),
+            "status": read_sync_status(config),
             "interval": config.get("syncer", {}).get("sync_interval_seconds"),
-            "whitelist_sync": file_info(config.get("syncer", {}).get("whitelist_sync_path", "")),
-            "blacklist_sync": file_info(config.get("syncer", {}).get("blacklist_sync_path", "")),
+            "whitelist_sync": file_info(config.get("whitelist_path", "")),
+            "blacklist_sync": file_info(config.get("blacklist_path", "")),
         },
     }
     return web.json_response(response)
@@ -359,7 +412,8 @@ def main() -> None:
     config = load_config()
     host = config["web_ui"]["host"]
     port = int(config["web_ui"]["port"])
-    print(f"WebUI ready on http://{host}:{port} (LAN accessible)")
+    access_note = "LAN accessible" if host == "0.0.0.0" else "local machine only"
+    print(f"WebUI ready on http://{host}:{port} ({access_note})")
     web.run_app(create_app(), host=host, port=port)
 
 
@@ -368,6 +422,8 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         print("Closing program...")
+    except ConfigError as e:
+        print(f"Configuration error: {e}")
     except Exception as e:
         print(f"WebUI crashed with error: {e}")
         traceback.print_exc()

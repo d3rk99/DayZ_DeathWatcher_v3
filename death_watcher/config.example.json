@@ -1,0 +1,13 @@
+{
+  "log_paths": [
+    "C:/Path/To/Your/Server/profiles/DetailedLogs"
+  ],
+  "path_to_bans": "./deaths.txt",
+  "path_to_alive_times": "./alive_times.txt",
+  "cache_paths": [
+    "./death_watcher_cache.json"
+  ],
+  "ban_delay": 5,
+  "search_logs_interval": 1,
+  "verbose_logs": 1
+}

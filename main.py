@@ -16,6 +16,7 @@ from nextcord.member import Member
 import nextcord
 from nextcord import Webhook
 from dayz_dev_tools import guid as GUID
+from config_loader import ConfigError, config_bool, load_config, sync_startup_message
 
 os.system("title " + "Life and Death Bot")
 
@@ -23,17 +24,14 @@ def main():
     global client
     global config
     
-    if (not os.path.isfile("config.json")):
-        sys.exit("'config.json' not found!")
-    else:
-        print("Loading config...")
-        with open("config.json") as file:
-            config = json.load(file)
-    config.setdefault("death_timer_seconds", 1209600)
-    config.setdefault("revive_dm_message", "You have been revived! Your dead role has been removed. Welcome back.")
-    config.setdefault("death_watcher_alive_time_path", "./death_watcher/alive_times.txt")
-    config.setdefault("alive_leaderboard_channel_id", -1)
-    config.setdefault("leaderboard_text_channel_id", config.get("alive_leaderboard_channel_id", -1))
+    print("Loading config...")
+    try:
+        config, config_warnings = load_config("config.json")
+    except ConfigError as exc:
+        sys.exit(f"Configuration error: {exc}")
+    for warning in config_warnings:
+        print(f"Configuration warning: {warning}")
+    print(sync_startup_message(config))
     
     # create userdata db (json) file if it does not exist
     if (not os.path.isfile(config["userdata_db_path"])):
@@ -66,7 +64,7 @@ def main():
     
     load_cogs()
     
-    watch_death_watcher_bans = int(config["watch_death_watcher"]) > 0
+    watch_death_watcher_bans = bool(config["watch_death_watcher"])
     if (watch_death_watcher_bans and not os.path.isfile(config["death_watcher_death_path"])):
         print(f"Failed to find death watcher deaths file. ({config['death_watcher_death_path']}) Continuing without watching for deaths")
         watch_death_watcher_bans = False
@@ -618,7 +616,7 @@ async def dump_error_discord(error_message : str, prefix : str = "Error", force_
                 mention = force_mention_tag
             else:
                 mention = await get_user_id_from_name(force_mention_tag)
-        if (mention == "" and str(config["error_dump_allow_mention"]) != "0"):
+        if (mention == "" and config_bool(config["error_dump_allow_mention"])):
             mention = config["error_dump_mention_tag"]
             if (mention != "" and mention != "everyone" and mention != "here"):
                 mention = await get_user_id_from_name(mention)
